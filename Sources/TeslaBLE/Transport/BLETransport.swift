@@ -297,15 +297,34 @@ extension BLETransport: CBPeripheralDelegate {
 
         let now = Date()
         if let lastRx = lastRxTime, now.timeIntervalSince(lastRx) > Self.rxTimeout {
+            if !inputBuffer.isEmpty {
+                logger?.log(
+                    .warning,
+                    category: "transport",
+                    "RX buffer reset: \(String(format: "%.2f", now.timeIntervalSince(lastRx)))s gap > \(Self.rxTimeout)s timeout, discarding \(inputBuffer.count) buffered bytes (likely a stalled multi-fragment response)",
+                )
+            }
             inputBuffer = Data()
         }
         lastRxTime = now
         inputBuffer.append(value)
 
+        // How many bytes the current frame needs (2-byte length prefix), for visibility.
+        var expected = -1
+        if inputBuffer.count >= 2 {
+            expected = 2 + (Int(inputBuffer[inputBuffer.startIndex]) << 8 | Int(inputBuffer[inputBuffer.startIndex + 1]))
+        }
+        logger?.log(
+            .debug,
+            category: "transport",
+            "RX fragment \(value.count)B; buffered \(inputBuffer.count)\(expected > 0 ? "/\(expected)" : "")B",
+        )
+
         // Deliver complete messages to waiting receivers.
         // Only extract when someone is waiting — otherwise leave in inputBuffer
         // so the next receive() call picks it up via tryFlush().
         while !receiveContinuations.isEmpty, let message = tryFlush() {
+            logger?.log(.debug, category: "transport", "RX message reassembled: \(message.count)B; \(inputBuffer.count)B left in buffer")
             let continuation = receiveContinuations.removeFirst()
             continuation.resume(returning: message)
         }

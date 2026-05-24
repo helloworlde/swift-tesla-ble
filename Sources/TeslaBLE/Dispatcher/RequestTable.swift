@@ -76,4 +76,12 @@ struct RequestTable {
     func contains(token: Data) -> Bool {
         entries[token] != nil
     }
+
+    /// Hex-joined list of currently-registered tokens, for diagnostics.
+    var pendingTokensDescription: String {
+        if entries.isEmpty { return "none" }
+        return entries.keys
+            .map { $0.map { String(format: "%02x", $0) }.joined() }
+            .joined(separator: ",")
+    }
 }
