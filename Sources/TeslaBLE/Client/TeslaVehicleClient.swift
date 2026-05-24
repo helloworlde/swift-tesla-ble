@@ -256,8 +256,45 @@ public actor TeslaVehicleClient {
         _ query: StateQuery = .all,
         timeout: Duration = .seconds(10),
     ) async throws -> TeslaVehicleSnapshot {
-        let raw = try await fetchRaw(query: query, timeout: timeout)
-        return VehicleSnapshotMapper.map(raw)
+        let categories = Self.expandCategories(query)
+
+        // A single combined getVehicleData spanning many categories overflows
+        // the vehicle's BLE response buffer — real cars reject it with
+        // MESSAGEFAULT_ERROR_RESPONSE_MTU_EXCEEDED. So for multi-category
+        // queries, fetch each category in its own round trip and merge the
+        // protobufs. Single-category queries keep the original fast path.
+        guard categories.count > 1 else {
+            let raw = try await fetchRaw(query: query, timeout: timeout)
+            return VehicleSnapshotMapper.map(raw)
+        }
+
+        var merged = CarServer_VehicleData()
+        var succeeded = 0
+        var lastError: Swift.Error?
+        for category in categories {
+            do {
+                let raw = try await fetchRaw(query: .categories([category]), timeout: timeout)
+                try merged.merge(serializedBytes: raw.serializedData())
+                succeeded += 1
+            } catch {
+                lastError = error
+                logger?.log(.warning, category: "client", "fetch category \(category) failed: \(error)")
+            }
+        }
+        guard succeeded > 0 else {
+            throw lastError ?? TeslaBLEError.fetchFailed(underlying: "all \(categories.count) categories failed")
+        }
+        logger?.log(.info, category: "client", "fetched \(succeeded)/\(categories.count) categories")
+        return VehicleSnapshotMapper.map(merged)
+    }
+
+    /// Expands a ``StateQuery`` into the concrete list of categories to fetch.
+    private static func expandCategories(_ query: StateQuery) -> [StateCategory] {
+        switch query {
+        case .all: StateCategory.allCases
+        case .driveOnly: [.drive]
+        case let .categories(set): Array(set)
+        }
     }
 
     /// Low-latency fast path that fetches only the drive state subset.
