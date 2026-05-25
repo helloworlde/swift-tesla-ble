@@ -149,6 +149,19 @@ public enum Command: Sendable, Equatable {
         ///     key.
         ///   - role: Role to revoke.
         case removePermissions(publicKey: Data, role: KeyRole)
+
+        /// Replaces the role assigned to a key already in the VCSEC
+        /// whitelist with the given one.
+        ///
+        /// Mirrors `VCSEC_WhitelistOperation.updateKeyAndPermissions`. Use
+        /// this when promoting a driver to owner, demoting an owner to a
+        /// charging manager, etc., without going through a remove + re-add.
+        ///
+        /// - Parameters:
+        ///   - publicKey: 65-byte uncompressed SEC1 encoding of the target
+        ///     key.
+        ///   - role: New role for the key. Replaces any previously-set role.
+        case updateKeyPermissions(publicKey: Data, role: KeyRole)
     }
 
     // MARK: - Charge

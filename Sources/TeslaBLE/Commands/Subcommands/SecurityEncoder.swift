@@ -42,6 +42,10 @@ enum SecurityEncoder {
             let body = try encodePermissionChange(publicKey: publicKey, role: role, kind: .remove)
             return (.vehicleSecurity, body)
 
+        case let .updateKeyPermissions(publicKey, role):
+            let body = try encodePermissionChange(publicKey: publicKey, role: role, kind: .update)
+            return (.vehicleSecurity, body)
+
         // MARK: - Infotainment: Sentry, Valet, Guest
 
         case let .setSentryMode(on):
@@ -202,6 +206,7 @@ enum SecurityEncoder {
     private enum PermissionChangeKind {
         case add
         case remove
+        case update
     }
 
     /// Encodes `WhitelistOperation.addPermissionsToPublicKey` and its
@@ -230,6 +235,8 @@ enum SecurityEncoder {
             whitelist.subMessage = .addPermissionsToPublicKey(permChange)
         case .remove:
             whitelist.subMessage = .removePermissionsFromPublicKey(permChange)
+        case .update:
+            whitelist.subMessage = .updateKeyAndPermissions(permChange)
         }
 
         var unsigned = VCSEC_UnsignedMessage()
@@ -318,7 +325,7 @@ enum SecurityEncoder {
             var req = VCSEC_ClosureMoveRequest()
             req.tonneau = .closureMoveTypeStop
             unsigned.subMessage = .closureMoveRequest(req)
-        case .addKey, .removeKey, .addPermissions, .removePermissions,
+        case .addKey, .removeKey, .addPermissions, .removePermissions, .updateKeyPermissions,
              .setSentryMode, .setValetMode, .eraseGuestData,
              .resetPin, .resetValetPin, .setGuestMode, .setPinToDrive, .clearPinToDrive,
              .activateSpeedLimit, .deactivateSpeedLimit, .setSpeedLimit,

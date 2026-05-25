@@ -384,6 +384,22 @@ final class CommandEncoderTests: XCTestCase {
         XCTAssertEqual(permChange.keyRole, .chargingManager)
     }
 
+    func testSecurityUpdateKeyPermissionsEncodesPermissionChange() throws {
+        var publicKey = Data([0x04])
+        publicKey.append(Data(repeating: 0x77, count: 32))
+        publicKey.append(Data(repeating: 0x88, count: 32))
+
+        let (domain, body) = try CommandEncoder.encode(
+            .security(.updateKeyPermissions(publicKey: publicKey, role: .owner)),
+        )
+        XCTAssertEqual(domain, .vehicleSecurity)
+        let unsigned = try VCSEC_UnsignedMessage(serializedBytes: body)
+        guard case let .whitelistOperation(whitelist)? = unsigned.subMessage else { XCTFail(); return }
+        guard case let .updateKeyAndPermissions(permChange)? = whitelist.subMessage else { XCTFail(); return }
+        XCTAssertEqual(permChange.key.publicKeyRaw, publicKey)
+        XCTAssertEqual(permChange.keyRole, .owner)
+    }
+
     func testSecurityPermissionChangeRejectsShortKey() {
         let badKey = Data(repeating: 0x04, count: 33)
         XCTAssertThrowsError(
