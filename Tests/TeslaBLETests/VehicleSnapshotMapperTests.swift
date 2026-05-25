@@ -870,6 +870,42 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         XCTAssertEqual(u?.expectedDurationSeconds, 1800)
     }
 
+    func testSoftwareUpdateStateDepth() {
+        var data = CarServer_VehicleData()
+        var update = CarServer_SoftwareUpdateState()
+        var status = CarServer_SoftwareUpdateState.SoftwareUpdateStatus()
+        status.type = .scheduled(CarServer_Void())
+        update.status = status
+        update.scheduledTimeMs = 1_700_000_000_000
+        update.warningTimeRemainingMs = 60_000
+        data.softwareUpdateState = update
+
+        let u = VehicleSnapshotMapper.map(data).softwareUpdate
+        XCTAssertEqual(u?.status, .scheduled)
+        XCTAssertEqual(u?.scheduledTimeMs, 1_700_000_000_000)
+        XCTAssertEqual(u?.warningTimeRemainingMs, 60_000)
+    }
+
+    func testSoftwareUpdateStatusAllVariants() {
+        let cases: [(CarServer_SoftwareUpdateState.SoftwareUpdateStatus.OneOf_Type, SoftwareUpdateState.Status)] = [
+            (.unknown(CarServer_Void()), .unknown),
+            (.installing(CarServer_Void()), .installing),
+            (.scheduled(CarServer_Void()), .scheduled),
+            (.available(CarServer_Void()), .available),
+            (.downloadingWifiWait(CarServer_Void()), .downloadingWifiWait),
+            (.downloading(CarServer_Void()), .downloading),
+        ]
+        for (type, expected) in cases {
+            var data = CarServer_VehicleData()
+            var update = CarServer_SoftwareUpdateState()
+            var status = CarServer_SoftwareUpdateState.SoftwareUpdateStatus()
+            status.type = type
+            update.status = status
+            data.softwareUpdateState = update
+            XCTAssertEqual(VehicleSnapshotMapper.map(data).softwareUpdate?.status, expected, "type=\(type)")
+        }
+    }
+
     // MARK: - Parental controls
 
     func testParentalControlsMapping() {

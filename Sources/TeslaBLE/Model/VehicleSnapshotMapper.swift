@@ -418,11 +418,29 @@ enum VehicleSnapshotMapper {
     private static func mapSoftwareUpdate(_ pb: CarServer_SoftwareUpdateState) -> SoftwareUpdateState {
         SoftwareUpdateState(
             version: pb.optionalVersion != nil ? pb.version : nil,
+            status: pb.hasStatus ? mapSoftwareUpdateStatus(pb.status) : nil,
             downloadPercent: pb.optionalDownloadPerc != nil ? Int(pb.downloadPerc) : nil,
             installPercent: pb.optionalInstallPerc != nil ? Int(pb.installPerc) : nil,
             expectedDurationSeconds: pb.optionalExpectedDurationSec != nil
                 ? Int(pb.expectedDurationSec) : nil,
+            scheduledTimeMs: pb.optionalScheduledTimeMs != nil ? pb.scheduledTimeMs : nil,
+            warningTimeRemainingMs: pb.optionalWarningTimeRemainingMs != nil
+                ? pb.warningTimeRemainingMs : nil,
         )
+    }
+
+    private static func mapSoftwareUpdateStatus(
+        _ pb: CarServer_SoftwareUpdateState.SoftwareUpdateStatus,
+    ) -> SoftwareUpdateState.Status? {
+        guard let type = pb.type else { return nil }
+        switch type {
+        case .unknown: return .unknown
+        case .installing: return .installing
+        case .scheduled: return .scheduled
+        case .available: return .available
+        case .downloadingWifiWait: return .downloadingWifiWait
+        case .downloading: return .downloading
+        }
     }
 
     private static func mapParentalControls(_ pb: CarServer_ParentalControlsState) -> ParentalControlsState {
