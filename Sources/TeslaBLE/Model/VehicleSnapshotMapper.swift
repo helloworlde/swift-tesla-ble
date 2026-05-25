@@ -250,7 +250,7 @@ enum VehicleSnapshotMapper {
     }
 
     private static func mapDrive(_ pb: CarServer_DriveState) -> DriveState {
-        let shiftState = mapShift(pb.shiftState)
+        let shiftState = pb.hasShiftState ? mapShift(pb.shiftState) : nil
         let speedMph: Double? = pb.optionalSpeedFloat != nil ? Double(pb.speedFloat) : nil
         let powerKW: Int? = pb.optionalPower != nil ? Int(pb.power) : nil
         let odometerHundredthsMile: Int? = pb.optionalOdometerInHundredthsOfAMile != nil
@@ -261,6 +261,17 @@ enum VehicleSnapshotMapper {
             ? Double(pb.activeRouteMinutesToArrival) : nil
         let milesToArrival: Double? = pb.optionalActiveRouteMilesToArrival != nil
             ? Double(pb.activeRouteMilesToArrival) : nil
+        let trafficDelay: Double? = pb.optionalActiveRouteTrafficMinutesDelay != nil
+            ? Double(pb.activeRouteTrafficMinutesDelay) : nil
+        let energyAtArrival: Double? = pb.optionalActiveRouteEnergyAtArrival != nil
+            ? Double(pb.activeRouteEnergyAtArrival) : nil
+        let coordinates: Coordinate? = pb.hasActiveRouteCoordinates
+            ? mapLatLong(pb.activeRouteCoordinates) : nil
+        let lastRouteUpdate: UInt32? = pb.optionalLastRouteUpdate != nil
+            ? pb.lastRouteUpdate : nil
+        let lastTrafficUpdate: Int64? = pb.hasLastTrafficUpdate
+            ? pb.lastTrafficUpdate.seconds : nil
+        let timestamp: Int64? = pb.hasTimestamp ? pb.timestamp.seconds : nil
 
         return DriveState(
             shiftState: shiftState,
@@ -270,6 +281,12 @@ enum VehicleSnapshotMapper {
             activeRouteDestination: destination,
             activeRouteMinutesToArrival: minutesToArrival,
             activeRouteMilesToArrival: milesToArrival,
+            activeRouteTrafficMinutesDelay: trafficDelay,
+            activeRouteEnergyAtArrival: energyAtArrival,
+            activeRouteCoordinates: coordinates,
+            lastRouteUpdateSecondsSinceEpoch: lastRouteUpdate,
+            lastTrafficUpdateSecondsSinceEpoch: lastTrafficUpdate,
+            timestampSecondsSinceEpoch: timestamp,
         )
     }
 

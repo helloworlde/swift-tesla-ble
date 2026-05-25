@@ -269,6 +269,56 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         XCTAssertNil(result.speedMph)
     }
 
+    func testDriveStateDepthMapping() {
+        var data = CarServer_VehicleData()
+        var drive = CarServer_DriveState()
+        drive.activeRouteDestination = "Tesla HQ"
+        drive.activeRouteMinutesToArrival = 12.5
+        drive.activeRouteMilesToArrival = 7.3
+        drive.activeRouteTrafficMinutesDelay = 2.0
+        drive.activeRouteEnergyAtArrival = 47.0
+        var coords = CarServer_LatLong()
+        coords.latitude = 37.4275
+        coords.longitude = -122.1697
+        drive.activeRouteCoordinates = coords
+        drive.lastRouteUpdate = 1_700_000_100
+        var lastTraffic = SwiftProtobuf.Google_Protobuf_Timestamp()
+        lastTraffic.seconds = 1_700_000_200
+        drive.lastTrafficUpdate = lastTraffic
+        var ts = SwiftProtobuf.Google_Protobuf_Timestamp()
+        ts.seconds = 1_700_000_300
+        drive.timestamp = ts
+        data.driveState = drive
+
+        let d = VehicleSnapshotMapper.map(data).drive
+        XCTAssertEqual(d?.activeRouteDestination, "Tesla HQ")
+        XCTAssertEqual(d?.activeRouteMinutesToArrival ?? 0, 12.5, accuracy: 0.001)
+        XCTAssertEqual(d?.activeRouteMilesToArrival ?? 0, 7.3, accuracy: 0.001)
+        XCTAssertEqual(d?.activeRouteTrafficMinutesDelay ?? 0, 2.0, accuracy: 0.001)
+        XCTAssertEqual(d?.activeRouteEnergyAtArrival ?? 0, 47.0, accuracy: 0.001)
+        XCTAssertEqual(d?.activeRouteCoordinates?.latitude ?? 0, 37.4275, accuracy: 0.001)
+        XCTAssertEqual(d?.activeRouteCoordinates?.longitude ?? 0, -122.1697, accuracy: 0.001)
+        XCTAssertEqual(d?.lastRouteUpdateSecondsSinceEpoch, 1_700_000_100)
+        XCTAssertEqual(d?.lastTrafficUpdateSecondsSinceEpoch, 1_700_000_200)
+        XCTAssertEqual(d?.timestampSecondsSinceEpoch, 1_700_000_300)
+    }
+
+    func testDriveStateUnsetFieldsAreNil() {
+        var data = CarServer_VehicleData()
+        data.driveState = CarServer_DriveState()
+        let d = VehicleSnapshotMapper.map(data).drive
+        XCTAssertNotNil(d)
+        XCTAssertNil(d?.activeRouteDestination)
+        XCTAssertNil(d?.activeRouteMinutesToArrival)
+        XCTAssertNil(d?.activeRouteMilesToArrival)
+        XCTAssertNil(d?.activeRouteTrafficMinutesDelay)
+        XCTAssertNil(d?.activeRouteEnergyAtArrival)
+        XCTAssertNil(d?.activeRouteCoordinates)
+        XCTAssertNil(d?.lastRouteUpdateSecondsSinceEpoch)
+        XCTAssertNil(d?.lastTrafficUpdateSecondsSinceEpoch)
+        XCTAssertNil(d?.timestampSecondsSinceEpoch)
+    }
+
     // MARK: - ChargingStatus enum
 
     func testChargingStatusAllVariants() {
