@@ -60,12 +60,22 @@ public enum VehicleQuery: Sendable, Equatable {
     /// Returns nearby Supercharger sites as seen by the vehicle's navigation
     /// system. Dispatched on the Infotainment domain.
     ///
+    /// > Important: The vehicle's BLE response buffer is bounded. A reply
+    /// > that overflows it is rejected with `RESPONSE_MTU_EXCEEDED` and
+    /// > surfaces here as ``TeslaBLEError/commandRejected(code:reason:)``.
+    /// > Unlike ``TeslaVehicleClient/fetch(_:timeout:)`` this query is a
+    /// > single round trip — there is nothing the client can split. To stay
+    /// > safe over BLE, pass an explicit small `count` (e.g. 5–10) and keep
+    /// > `includeMetadata` off; passing `0` lets the vehicle pick a default
+    /// > that may not fit the BLE response.
+    ///
     /// - Parameters:
     ///   - includeMetadata: `true` to include site metadata such as stall
-    ///     count and amenities.
+    ///     count and amenities. Off by default to keep responses small.
     ///   - radiusMiles: Search radius in miles, or `0` to let the vehicle
     ///     pick a default.
     ///   - count: Maximum number of results, or `0` for the vehicle default.
+    ///     Prefer an explicit small value over BLE.
     case nearbyCharging(includeMetadata: Bool = false, radiusMiles: Int32 = 0, count: Int32 = 0)
 
     /// Application-layer ping over the Infotainment domain. Useful as a
