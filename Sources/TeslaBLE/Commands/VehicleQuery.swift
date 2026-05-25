@@ -56,7 +56,7 @@ public enum VehicleQueryResult: Sendable {
     /// Result of ``VehicleQuery/keyInfo(slot:)``.
     case keyInfo(VCSEC_WhitelistEntryInfo)
     /// Result of ``VehicleQuery/bodyControllerState``.
-    case bodyControllerState(VCSEC_VehicleStatus)
+    case bodyControllerState(BodyControllerState)
     /// Result of ``VehicleQuery/nearbyCharging(includeMetadata:radiusMiles:count:)``.
     case nearbyCharging(CarServer_NearbyChargingSites)
 }
@@ -144,7 +144,7 @@ enum VehicleQueryDecoder {
             guard case let .vehicleStatus(status)? = message.subMessage else {
                 throw Error.unexpectedMessageType("expected vehicleStatus, got \(describe(message.subMessage))")
             }
-            return .bodyControllerState(status)
+            return .bodyControllerState(VCSECStatusMapper.map(status))
 
         case .nearbyCharging:
             let response: CarServer_Response

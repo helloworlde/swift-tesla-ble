@@ -890,7 +890,7 @@ final class CommandEncoderTests: XCTestCase {
         guard case let .bodyControllerState(decoded) = result else {
             XCTFail("expected .bodyControllerState"); return
         }
-        XCTAssertEqual(decoded.vehicleLockState, .vehiclelockstateLocked)
+        XCTAssertEqual(decoded.lockState, .locked)
     }
 
     func testQueryDecodeRejectsWrongSubMessage() {
