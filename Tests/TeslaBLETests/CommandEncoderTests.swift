@@ -400,6 +400,50 @@ final class CommandEncoderTests: XCTestCase {
         XCTAssertEqual(permChange.keyRole, .owner)
     }
 
+    func testSecurityReplaceKeyEncodesReplaceKey() throws {
+        var oldKey = Data([0x04])
+        oldKey.append(Data(repeating: 0xAA, count: 32))
+        oldKey.append(Data(repeating: 0xBB, count: 32))
+        var newKey = Data([0x04])
+        newKey.append(Data(repeating: 0xCC, count: 32))
+        newKey.append(Data(repeating: 0xDD, count: 32))
+
+        let (domain, body) = try CommandEncoder.encode(
+            .security(.replaceKey(
+                oldPublicKey: oldKey,
+                newPublicKey: newKey,
+                role: .driver,
+                impermanent: true,
+            )),
+        )
+        XCTAssertEqual(domain, .vehicleSecurity)
+        let unsigned = try VCSEC_UnsignedMessage(serializedBytes: body)
+        guard case let .whitelistOperation(whitelist)? = unsigned.subMessage else { XCTFail(); return }
+        guard case let .replaceKey(replace)? = whitelist.subMessage else { XCTFail(); return }
+        guard case let .publicKeyToReplace(pub)? = replace.keyToReplace else { XCTFail("expected publicKeyToReplace"); return }
+        XCTAssertEqual(pub.publicKeyRaw, oldKey)
+        XCTAssertEqual(replace.keyToAdd.publicKeyRaw, newKey)
+        XCTAssertEqual(replace.keyRole, .driver)
+        XCTAssertTrue(replace.impermanent)
+    }
+
+    func testSecurityReplaceKeyRejectsShortKeys() {
+        let badKey = Data(repeating: 0x04, count: 33)
+        var goodKey = Data([0x04])
+        goodKey.append(Data(repeating: 0xAA, count: 32))
+        goodKey.append(Data(repeating: 0xBB, count: 32))
+        XCTAssertThrowsError(try CommandEncoder.encode(
+            .security(.replaceKey(oldPublicKey: badKey, newPublicKey: goodKey, role: .owner)),
+        )) { error in
+            guard case SecurityEncoder.Error.encodingFailed = error else { XCTFail(); return }
+        }
+        XCTAssertThrowsError(try CommandEncoder.encode(
+            .security(.replaceKey(oldPublicKey: goodKey, newPublicKey: badKey, role: .owner)),
+        )) { error in
+            guard case SecurityEncoder.Error.encodingFailed = error else { XCTFail(); return }
+        }
+    }
+
     func testSecurityPermissionChangeRejectsShortKey() {
         let badKey = Data(repeating: 0x04, count: 33)
         XCTAssertThrowsError(

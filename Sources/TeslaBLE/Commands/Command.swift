@@ -150,6 +150,29 @@ public enum Command: Sendable, Equatable {
         ///   - role: Role to revoke.
         case removePermissions(publicKey: Data, role: KeyRole)
 
+        /// Replaces the public key in a whitelist slot, keeping the slot
+        /// occupied. Useful when rotating a key without going through a
+        /// remove + re-add cycle.
+        ///
+        /// Mirrors `VCSEC_WhitelistOperation.replaceKey`. The new key
+        /// inherits the role explicitly given here; impermanent placement
+        /// (auto-expire) is opt-in via `impermanent`.
+        ///
+        /// - Parameters:
+        ///   - oldPublicKey: 65-byte uncompressed SEC1 encoding of the key
+        ///     currently in the slot.
+        ///   - newPublicKey: 65-byte uncompressed SEC1 encoding of the
+        ///     replacement key.
+        ///   - role: Role to assign to the replacement key.
+        ///   - impermanent: When `true` the replacement key is added as an
+        ///     impermanent (temporary / guest) key.
+        case replaceKey(
+            oldPublicKey: Data,
+            newPublicKey: Data,
+            role: KeyRole,
+            impermanent: Bool = false,
+        )
+
         /// Replaces the role assigned to a key already in the VCSEC
         /// whitelist with the given one.
         ///
