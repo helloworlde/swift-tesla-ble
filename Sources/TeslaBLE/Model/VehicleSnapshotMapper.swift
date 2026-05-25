@@ -447,6 +447,27 @@ enum VehicleSnapshotMapper {
         ParentalControlsState(
             active: pb.optionalParentalControlsActive != nil ? pb.parentalControlsActive : nil,
             pinSet: pb.optionalParentalControlsPinSet != nil ? pb.parentalControlsPinSet : nil,
+            settings: pb.hasParentalControlsSettings
+                ? mapParentalControlsSettings(pb.parentalControlsSettings) : nil,
+        )
+    }
+
+    private static func mapParentalControlsSettings(
+        _ pb: CarServer_ParentalControlsSettings,
+    ) -> ParentalControlsSettings {
+        ParentalControlsSettings(
+            speedLimitEnabled: pb.optionalSpeedLimitEnabled != nil
+                ? pb.speedLimitEnabled : nil,
+            maxLimitMph: pb.optionalMaxLimitMph != nil ? Double(pb.maxLimitMph) : nil,
+            minLimitMph: pb.optionalMinLimitMph != nil ? Double(pb.minLimitMph) : nil,
+            currentLimitMph: pb.optionalCurrentLimitMph != nil ? Double(pb.currentLimitMph) : nil,
+            chillAccelerationEnabled: pb.optionalChillAccelerationEnabled != nil
+                ? pb.chillAccelerationEnabled : nil,
+            requireSafetySettingsEnabled: pb.optionalRequireSafetySettingsEnabled != nil
+                ? pb.requireSafetySettingsEnabled : nil,
+            curfewEnabled: pb.optionalCurfewEnabled != nil ? pb.curfewEnabled : nil,
+            curfewStartTime: pb.optionalCurfewStartTime != nil ? Int(pb.curfewStartTime) : nil,
+            curfewEndTime: pb.optionalCurfewEndTime != nil ? Int(pb.curfewEndTime) : nil,
         )
     }
 

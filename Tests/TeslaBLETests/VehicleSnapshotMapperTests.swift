@@ -918,6 +918,35 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         let result = VehicleSnapshotMapper.map(data).parentalControls
         XCTAssertEqual(result?.active, true)
         XCTAssertEqual(result?.pinSet, false)
+        XCTAssertNil(result?.settings)
+    }
+
+    func testParentalControlsSettingsMapping() {
+        var data = CarServer_VehicleData()
+        var pc = CarServer_ParentalControlsState()
+        var settings = CarServer_ParentalControlsSettings()
+        settings.speedLimitEnabled = true
+        settings.maxLimitMph = 90.0
+        settings.minLimitMph = 50.0
+        settings.currentLimitMph = 70.0
+        settings.chillAccelerationEnabled = true
+        settings.requireSafetySettingsEnabled = false
+        settings.curfewEnabled = true
+        settings.curfewStartTime = 22 * 3600
+        settings.curfewEndTime = 6 * 3600
+        pc.parentalControlsSettings = settings
+        data.parentalControlsState = pc
+
+        let s = VehicleSnapshotMapper.map(data).parentalControls?.settings
+        XCTAssertEqual(s?.speedLimitEnabled, true)
+        XCTAssertEqual(s?.maxLimitMph ?? 0, 90.0, accuracy: 0.01)
+        XCTAssertEqual(s?.minLimitMph ?? 0, 50.0, accuracy: 0.01)
+        XCTAssertEqual(s?.currentLimitMph ?? 0, 70.0, accuracy: 0.01)
+        XCTAssertEqual(s?.chillAccelerationEnabled, true)
+        XCTAssertEqual(s?.requireSafetySettingsEnabled, false)
+        XCTAssertEqual(s?.curfewEnabled, true)
+        XCTAssertEqual(s?.curfewStartTime, 22 * 3600)
+        XCTAssertEqual(s?.curfewEndTime, 6 * 3600)
     }
 
     // MARK: - Schedule state sentinels
