@@ -396,9 +396,15 @@ enum VehicleSnapshotMapper {
             nowPlayingArtist: pb.optionalNowPlayingArtist != nil ? pb.nowPlayingArtist : nil,
             nowPlayingTitle: pb.optionalNowPlayingTitle != nil ? pb.nowPlayingTitle : nil,
             audioVolume: pb.optionalAudioVolume != nil ? Double(pb.audioVolume) : nil,
+            audioVolumeIncrement: pb.optionalAudioVolumeIncrement != nil
+                ? Double(pb.audioVolumeIncrement) : nil,
             audioVolumeMax: pb.optionalAudioVolumeMax != nil ? Double(pb.audioVolumeMax) : nil,
             remoteControlEnabled: pb.optionalRemoteControlEnabled != nil
                 ? pb.remoteControlEnabled : nil,
+            nowPlayingSource: pb.optionalNowPlayingSource != nil
+                ? mapMediaSource(pb.nowPlayingSource) : nil,
+            playbackStatus: pb.optionalMediaPlaybackStatus != nil
+                ? mapPlaybackStatus(pb.mediaPlaybackStatus) : nil,
         )
     }
 
@@ -410,10 +416,62 @@ enum VehicleSnapshotMapper {
                 ? Double(pb.nowPlayingElapsed) : nil,
             nowPlayingAlbum: pb.optionalNowPlayingAlbum != nil ? pb.nowPlayingAlbum : nil,
             nowPlayingStation: pb.optionalNowPlayingStation != nil ? pb.nowPlayingStation : nil,
-            nowPlayingSource: pb.optionalNowPlayingSourceString != nil
+            nowPlayingSourceName: pb.optionalNowPlayingSourceString != nil
                 ? pb.nowPlayingSourceString : nil,
             a2dpSourceName: pb.optionalA2DpSourceName != nil ? pb.a2DpSourceName : nil,
         )
+    }
+
+    private static func mapMediaSource(
+        _ pb: CarServer_MediaSourceType,
+    ) -> MediaState.MediaSource {
+        switch pb {
+        case .none: return .none
+        case .am: return .am
+        case .fm: return .fm
+        case .xm: return .xm
+        case .slacker: return .slacker
+        case .localFiles: return .localFiles
+        case .iPod: return .iPod
+        case .bluetooth: return .bluetooth
+        case .auxIn: return .auxIn
+        case .dab: return .dab
+        case .rdio: return .rdio
+        case .spotify: return .spotify
+        case .usradio: return .usRadio
+        case .euradio: return .euRadio
+        case .mediaFile: return .mediaFile
+        case .tuneIn: return .tuneIn
+        case .stingray: return .stingray
+        case .siriusXm: return .siriusXm
+        case .tidal: return .tidal
+        case .qqmusic: return .qqmusic
+        case .qqmusic2: return .qqmusic2
+        case .ximalaya: return .ximalaya
+        case .onlineRadio: return .onlineRadio
+        case .onlineRadio2: return .onlineRadio2
+        case .netEaseMusic: return .netEaseMusic
+        case .browser: return .browser
+        case .theater: return .theater
+        case .game: return .game
+        case .tutorial: return .tutorial
+        case .toybox: return .toybox
+        case .recentsFavorites: return .recentsFavorites
+        case .homeApps: return .homeApps
+        case .search: return .search
+        case .UNRECOGNIZED(let raw): return .unknown(raw)
+        }
+    }
+
+    private static func mapPlaybackStatus(
+        _ pb: CarServer_MediaPlaybackStatus,
+    ) -> MediaState.PlaybackStatus? {
+        switch pb {
+        case .stopped: return .stopped
+        case .playing: return .playing
+        case .paused: return .paused
+        case .UNRECOGNIZED: return nil
+        }
     }
 
     private static func mapSoftwareUpdate(_ pb: CarServer_SoftwareUpdateState) -> SoftwareUpdateState {

@@ -10,8 +10,11 @@ public struct MediaDetailState: Sendable, Equatable {
     public var nowPlayingAlbum: String?
     /// Radio station name, if the current source is a radio. Nil if the vehicle did not report this field.
     public var nowPlayingStation: String?
-    /// Human-readable name of the media source (e.g. Spotify, TuneIn). Nil if the vehicle did not report this field.
-    public var nowPlayingSource: String?
+    /// Human-readable name of the media source (e.g. Spotify, TuneIn).
+    /// Mirrors `CarServer_MediaDetailState.nowPlayingSourceString`. Nil if
+    /// the vehicle did not report this field. The categorical, enumerated
+    /// equivalent lives on `MediaState.nowPlayingSource`.
+    public var nowPlayingSourceName: String?
     /// Name advertised by the connected A2DP Bluetooth source. Nil if the vehicle did not report this field.
     public var a2dpSourceName: String?
 
@@ -20,14 +23,14 @@ public struct MediaDetailState: Sendable, Equatable {
         nowPlayingElapsedSeconds: Double? = nil,
         nowPlayingAlbum: String? = nil,
         nowPlayingStation: String? = nil,
-        nowPlayingSource: String? = nil,
+        nowPlayingSourceName: String? = nil,
         a2dpSourceName: String? = nil,
     ) {
         self.nowPlayingDurationSeconds = nowPlayingDurationSeconds
         self.nowPlayingElapsedSeconds = nowPlayingElapsedSeconds
         self.nowPlayingAlbum = nowPlayingAlbum
         self.nowPlayingStation = nowPlayingStation
-        self.nowPlayingSource = nowPlayingSource
+        self.nowPlayingSourceName = nowPlayingSourceName
         self.a2dpSourceName = a2dpSourceName
     }
 }

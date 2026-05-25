@@ -820,16 +820,83 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         media.nowPlayingArtist = "Daft Punk"
         media.nowPlayingTitle = "Around the World"
         media.audioVolume = 6.5
+        media.audioVolumeIncrement = 0.5
         media.audioVolumeMax = 11.0
         media.remoteControlEnabled = true
+        media.nowPlayingSource = .spotify
+        media.mediaPlaybackStatus = .playing
         data.mediaState = media
 
         let m = VehicleSnapshotMapper.map(data).media
         XCTAssertEqual(m?.nowPlayingArtist, "Daft Punk")
         XCTAssertEqual(m?.nowPlayingTitle, "Around the World")
         XCTAssertEqual(m?.audioVolume ?? 0, 6.5, accuracy: 0.01)
+        XCTAssertEqual(m?.audioVolumeIncrement ?? 0, 0.5, accuracy: 0.01)
         XCTAssertEqual(m?.audioVolumeMax ?? 0, 11.0, accuracy: 0.01)
         XCTAssertEqual(m?.remoteControlEnabled, true)
+        XCTAssertEqual(m?.nowPlayingSource, .spotify)
+        XCTAssertEqual(m?.playbackStatus, .playing)
+    }
+
+    func testMediaStateOmittedExtrasAreNil() {
+        var data = CarServer_VehicleData()
+        let media = CarServer_MediaState()
+        data.mediaState = media
+
+        let m = VehicleSnapshotMapper.map(data).media
+        XCTAssertNotNil(m)
+        XCTAssertNil(m?.audioVolumeIncrement)
+        XCTAssertNil(m?.nowPlayingSource)
+        XCTAssertNil(m?.playbackStatus)
+    }
+
+    func testMediaSourceAllVariants() {
+        let cases: [(CarServer_MediaSourceType, MediaState.MediaSource)] = [
+            (.none, .none),
+            (.am, .am),
+            (.fm, .fm),
+            (.xm, .xm),
+            (.slacker, .slacker),
+            (.localFiles, .localFiles),
+            (.iPod, .iPod),
+            (.bluetooth, .bluetooth),
+            (.auxIn, .auxIn),
+            (.dab, .dab),
+            (.rdio, .rdio),
+            (.spotify, .spotify),
+            (.usradio, .usRadio),
+            (.euradio, .euRadio),
+            (.mediaFile, .mediaFile),
+            (.tuneIn, .tuneIn),
+            (.stingray, .stingray),
+            (.siriusXm, .siriusXm),
+            (.tidal, .tidal),
+            (.qqmusic, .qqmusic),
+            (.qqmusic2, .qqmusic2),
+            (.ximalaya, .ximalaya),
+            (.onlineRadio, .onlineRadio),
+            (.onlineRadio2, .onlineRadio2),
+            (.netEaseMusic, .netEaseMusic),
+            (.browser, .browser),
+            (.theater, .theater),
+            (.game, .game),
+            (.tutorial, .tutorial),
+            (.toybox, .toybox),
+            (.recentsFavorites, .recentsFavorites),
+            (.homeApps, .homeApps),
+            (.search, .search),
+        ]
+        for (raw, expected) in cases {
+            var data = CarServer_VehicleData()
+            var media = CarServer_MediaState()
+            media.nowPlayingSource = raw
+            data.mediaState = media
+            XCTAssertEqual(
+                VehicleSnapshotMapper.map(data).media?.nowPlayingSource,
+                expected,
+                "raw \(raw) should map to \(expected)",
+            )
+        }
     }
 
     func testMediaDetailStateMapping() {
@@ -848,7 +915,7 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         XCTAssertEqual(d?.nowPlayingElapsedSeconds, 60)
         XCTAssertEqual(d?.nowPlayingAlbum, "Discovery")
         XCTAssertEqual(d?.nowPlayingStation, "KEXP")
-        XCTAssertEqual(d?.nowPlayingSource, "Spotify")
+        XCTAssertEqual(d?.nowPlayingSourceName, "Spotify")
         XCTAssertEqual(d?.a2dpSourceName, "iPhone")
     }
 
