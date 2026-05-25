@@ -125,6 +125,11 @@ actor Dispatcher {
         }
 
         let token = routeToken(forDomain: domain, uuid: requestUUID, routingAddress: fromAddress)
+        logger?.log(
+            .debug,
+            category: "dispatcher",
+            "outbound send domain=\(domain) token=\(Self.hexString(token)) reqUuid=\(Self.hexString(requestUUID)) fromAddr=\(Self.hexString(fromAddress)) plaintext=\(plaintext.count)B",
+        )
 
         // Freeze the request before capturing in the Sendable closure.
         let frozenRequest = request
@@ -487,9 +492,11 @@ actor Dispatcher {
             do {
                 message = try UniversalMessage_RoutableMessage(serializedBytes: bytes)
             } catch {
-                logger?.log(.warning, category: "dispatcher", "dropping undecodable inbound frame: \(error)")
+                logger?.log(.warning, category: "dispatcher", "dropping undecodable inbound frame (\(bytes.count)B): \(error)")
                 continue
             }
+
+            logger?.log(.debug, category: "dispatcher", "inbound \(Self.describeInbound(message, size: bytes.count))")
 
             // Proactive / fault-triggered session resync. Vehicles may attach
             // a fresh (HMAC-signed) SessionInfo to any response if they think
@@ -502,15 +509,21 @@ actor Dispatcher {
             await maybeResyncFromInbound(message)
 
             guard let token = inboundToken(for: message) else {
-                logger?.log(.debug, category: "dispatcher", "unroutable inbound message (no token); dropping")
-                continue
-            }
-            let routed = requestTable.complete(token: token, with: message)
-            if !routed {
                 logger?.log(
                     .warning,
                     category: "dispatcher",
-                    "no pending request for token \(token.map { String(format: "%02x", $0) }.joined()); dropping",
+                    "unroutable inbound: no token extracted (from=\(message.hasFromDestination ? "\(message.fromDestination.domain)" : "-") reqUuid=\(Self.hexString(message.requestUuid))); dropping",
+                )
+                continue
+            }
+            let routed = requestTable.complete(token: token, with: message)
+            if routed {
+                logger?.log(.debug, category: "dispatcher", "routed inbound to token \(Self.hexString(token))")
+            } else {
+                logger?.log(
+                    .warning,
+                    category: "dispatcher",
+                    "no pending request for token \(Self.hexString(token)); dropping (pending: \(requestTable.pendingTokensDescription))",
                 )
             }
         }
@@ -581,6 +594,36 @@ actor Dispatcher {
     /// Required by 2024.38+ firmware for `getVehicleData`; older firmware
     /// ignores it.
     private static let defaultOutboundFlags: UInt32 = 1 << UInt32(UniversalMessage_Flags.flagEncryptResponse.rawValue)
+
+    // MARK: - Diagnostics helpers
+
+    private static func hexString(_ d: Data) -> String {
+        d.map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// One-line summary of an inbound RoutableMessage's routing-relevant fields,
+    /// for diagnosing why a response did or didn't match a pending request.
+    private static func describeInbound(_ m: UniversalMessage_RoutableMessage, size: Int) -> String {
+        let from = m.hasFromDestination ? "\(m.fromDestination.domain)" : "-"
+        var toAddr = "-"
+        if m.hasToDestination, case let .routingAddress(a)? = m.toDestination.subDestination {
+            toAddr = a.isEmpty ? "empty" : hexString(a)
+        }
+        let reqU = m.requestUuid.isEmpty ? "empty" : hexString(m.requestUuid)
+        var payload = "none"
+        if case .protobufMessageAsBytes? = m.payload {
+            payload = "bytes"
+        } else if case .sessionInfo? = m.payload {
+            payload = "sessionInfo"
+        } else if m.payload != nil {
+            payload = "other"
+        }
+        var status = ""
+        if m.hasSignedMessageStatus {
+            status = " fault=\(m.signedMessageStatus.signedMessageFault) op=\(m.signedMessageStatus.operationStatus)"
+        }
+        return "size=\(size)B from=\(from) reqUuid=\(reqU) toAddr=\(toAddr) payload=\(payload) flags=\(m.flags)\(status)"
+    }
 
     private static func newUUIDBytes() -> Data {
         var uuid = UUID().uuid
