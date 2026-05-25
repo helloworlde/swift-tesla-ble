@@ -672,6 +672,60 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         XCTAssertEqual(c?.isUserPresent, true)
     }
 
+    func testClosuresStateDepthMapping() {
+        var data = CarServer_VehicleData()
+        var closures = CarServer_ClosuresState()
+        closures.tonneauState = .closurestateOpening
+        closures.tonneauPercentOpen = 42
+        closures.tonneauInMotion = true
+        var display = CarServer_ClosuresState.DisplayState()
+        display.type = .driving(CarServer_Void())
+        closures.centerDisplayState = display
+        closures.sentryModeAvailable = true
+        closures.remoteStart = true
+        closures.valetPinNeeded = false
+
+        var speedLimit = CarServer_SpeedLimitMode()
+        speedLimit.active = true
+        speedLimit.pinCodeSet = true
+        speedLimit.maxLimitMph = 90.0
+        speedLimit.minLimitMph = 50.0
+        speedLimit.currentLimitMph = 65.0
+        closures.speedLimitMode = speedLimit
+
+        data.closuresState = closures
+
+        let c = VehicleSnapshotMapper.map(data).closures
+        XCTAssertEqual(c?.tonneauState, .opening)
+        XCTAssertEqual(c?.tonneauPercentOpen, 42)
+        XCTAssertEqual(c?.tonneauInMotion, true)
+        XCTAssertEqual(c?.centerDisplayState, .driving)
+        XCTAssertEqual(c?.sentryModeAvailable, true)
+        XCTAssertEqual(c?.remoteStart, true)
+        XCTAssertEqual(c?.valetPinNeeded, false)
+        XCTAssertEqual(c?.speedLimit?.active, true)
+        XCTAssertEqual(c?.speedLimit?.pinCodeSet, true)
+        XCTAssertEqual(c?.speedLimit?.maxLimitMph ?? 0, 90.0, accuracy: 0.01)
+        XCTAssertEqual(c?.speedLimit?.minLimitMph ?? 0, 50.0, accuracy: 0.01)
+        XCTAssertEqual(c?.speedLimit?.currentLimitMph ?? 0, 65.0, accuracy: 0.01)
+    }
+
+    func testClosuresStateUnsetExtrasAreNil() {
+        var data = CarServer_VehicleData()
+        data.closuresState = CarServer_ClosuresState()
+
+        let c = VehicleSnapshotMapper.map(data).closures
+        XCTAssertNotNil(c)
+        XCTAssertNil(c?.tonneauState)
+        XCTAssertNil(c?.tonneauPercentOpen)
+        XCTAssertNil(c?.tonneauInMotion)
+        XCTAssertNil(c?.centerDisplayState)
+        XCTAssertNil(c?.sentryModeAvailable)
+        XCTAssertNil(c?.remoteStart)
+        XCTAssertNil(c?.valetPinNeeded)
+        XCTAssertNil(c?.speedLimit)
+    }
+
     func testSunroofStateAllVariants() {
         let cases: [(CarServer_ClosuresState.SunRoofState.OneOf_Type, ClosuresState.SunroofState?)] = [
             (.closed(CarServer_Void()), .closed),

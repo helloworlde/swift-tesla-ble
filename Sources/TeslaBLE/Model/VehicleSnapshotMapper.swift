@@ -333,9 +333,31 @@ enum VehicleSnapshotMapper {
             windowPassengerRear: pb.optionalWindowOpenPassengerRear != nil ? pb.windowOpenPassengerRear : nil,
             sunroofState: sunroofState,
             sunroofPercentOpen: sunroofPercentOpen,
+            tonneauState: pb.optionalTonneauState != nil
+                ? mapTonneau(pb.tonneauState) : nil,
+            tonneauPercentOpen: pb.optionalTonneauPercentOpen != nil
+                ? Int(pb.tonneauPercentOpen) : nil,
+            tonneauInMotion: pb.optionalTonneauInMotion != nil ? pb.tonneauInMotion : nil,
+            centerDisplayState: pb.hasCenterDisplayState
+                ? mapDisplayState(pb.centerDisplayState) : nil,
             sentryModeActive: sentryModeActive,
+            sentryModeAvailable: pb.optionalSentryModeAvailable != nil
+                ? pb.sentryModeAvailable : nil,
+            remoteStart: pb.optionalRemoteStart != nil ? pb.remoteStart : nil,
             valetMode: pb.optionalValetMode != nil ? pb.valetMode : nil,
+            valetPinNeeded: pb.optionalValetPinNeeded != nil ? pb.valetPinNeeded : nil,
             isUserPresent: pb.optionalIsUserPresent != nil ? pb.isUserPresent : nil,
+            speedLimit: pb.hasSpeedLimitMode ? mapSpeedLimit(pb.speedLimitMode) : nil,
+        )
+    }
+
+    private static func mapSpeedLimit(_ pb: CarServer_SpeedLimitMode) -> SpeedLimitMode {
+        SpeedLimitMode(
+            active: pb.optionalActive != nil ? pb.active : nil,
+            pinCodeSet: pb.optionalPinCodeSet != nil ? pb.pinCodeSet : nil,
+            maxLimitMph: pb.optionalMaxLimitMph != nil ? Double(pb.maxLimitMph) : nil,
+            minLimitMph: pb.optionalMinLimitMph != nil ? Double(pb.minLimitMph) : nil,
+            currentLimitMph: pb.optionalCurrentLimitMph != nil ? Double(pb.currentLimitMph) : nil,
         )
     }
 
@@ -448,6 +470,39 @@ enum VehicleSnapshotMapper {
         case .moving: return .moving
         case .calibrating: return .calibrating
         case .unknown: return .unknown
+        }
+    }
+
+    private static func mapTonneau(
+        _ pb: VCSEC_ClosureState_E,
+    ) -> ClosuresState.TonneauState? {
+        switch pb {
+        case .closurestateClosed: return .closed
+        case .closurestateOpen: return .open
+        case .closurestateAjar: return .ajar
+        case .closurestateUnknown: return .unknown
+        case .closurestateFailedUnlatch: return .failedUnlatch
+        case .closurestateOpening: return .opening
+        case .closurestateClosing: return .closing
+        case .UNRECOGNIZED: return nil
+        }
+    }
+
+    private static func mapDisplayState(
+        _ pb: CarServer_ClosuresState.DisplayState,
+    ) -> ClosuresState.DisplayState? {
+        guard let type = pb.type else { return nil }
+        switch type {
+        case .off: return .off
+        case .dim: return .dim
+        case .accessory: return .accessory
+        case .on: return .on
+        case .driving: return .driving
+        case .charging: return .charging
+        case .lock: return .lock
+        case .sentry: return .sentry
+        case .dog: return .dog
+        case .entertainment: return .entertainment
         }
     }
 
