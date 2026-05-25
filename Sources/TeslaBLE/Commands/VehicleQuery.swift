@@ -79,8 +79,9 @@ public enum VehicleQuery: Sendable, Equatable {
     case ping(id: Int32)
 }
 
-/// Typed result of a ``VehicleQuery``. Each case wraps the raw generated
-/// protobuf message so callers can project into their own types as needed.
+/// Typed result of a ``VehicleQuery``. Every case carries a Swift-native
+/// projection — generated protobuf types are kept inside the encoder /
+/// decoder and never surface in this enum.
 public enum VehicleQueryResult: Sendable {
     /// Result of ``VehicleQuery/keySummary``.
     case keySummary(KeyWhitelistInfo)
