@@ -444,6 +444,66 @@ final class CommandEncoderTests: XCTestCase {
         }
     }
 
+    func testSecurityAddImpermanentKey() throws {
+        var publicKey = Data([0x04])
+        publicKey.append(Data(repeating: 0xEE, count: 32))
+        publicKey.append(Data(repeating: 0xFF, count: 32))
+
+        let (domain, body) = try CommandEncoder.encode(
+            .security(.addImpermanentKey(
+                publicKey: publicKey,
+                role: .guest,
+                formFactor: .iosDevice,
+            )),
+        )
+        XCTAssertEqual(domain, .vehicleSecurity)
+        let unsigned = try VCSEC_UnsignedMessage(serializedBytes: body)
+        guard case let .whitelistOperation(whitelist)? = unsigned.subMessage else { XCTFail(); return }
+        guard case let .addImpermanentKey(permChange)? = whitelist.subMessage else { XCTFail(); return }
+        XCTAssertEqual(permChange.key.publicKeyRaw, publicKey)
+        XCTAssertEqual(permChange.keyRole, .guest)
+        XCTAssertTrue(whitelist.hasMetadataForKey)
+        XCTAssertEqual(whitelist.metadataForKey.keyFormFactor, .iosDevice)
+    }
+
+    func testSecurityAddImpermanentKeyAndRemoveExisting() throws {
+        var publicKey = Data([0x04])
+        publicKey.append(Data(repeating: 0x12, count: 32))
+        publicKey.append(Data(repeating: 0x34, count: 32))
+
+        let (_, body) = try CommandEncoder.encode(
+            .security(.addImpermanentKeyAndRemoveExisting(
+                publicKey: publicKey,
+                role: .driver,
+                formFactor: .androidDevice,
+            )),
+        )
+        let unsigned = try VCSEC_UnsignedMessage(serializedBytes: body)
+        guard case let .whitelistOperation(whitelist)? = unsigned.subMessage else { XCTFail(); return }
+        guard case let .addImpermanentKeyAndRemoveExisting(permChange)? = whitelist.subMessage else { XCTFail(); return }
+        XCTAssertEqual(permChange.key.publicKeyRaw, publicKey)
+        XCTAssertEqual(permChange.keyRole, .driver)
+        XCTAssertEqual(whitelist.metadataForKey.keyFormFactor, .androidDevice)
+    }
+
+    func testSecurityImpermanentKeyRejectsShortKey() {
+        let badKey = Data(repeating: 0x04, count: 33)
+        XCTAssertThrowsError(try CommandEncoder.encode(
+            .security(.addImpermanentKey(publicKey: badKey, role: .driver, formFactor: .nfcCard)),
+        )) { error in
+            guard case SecurityEncoder.Error.encodingFailed = error else { XCTFail(); return }
+        }
+    }
+
+    func testSecurityRemoveAllImpermanentKeys() throws {
+        let (domain, body) = try CommandEncoder.encode(.security(.removeAllImpermanentKeys))
+        XCTAssertEqual(domain, .vehicleSecurity)
+        let unsigned = try VCSEC_UnsignedMessage(serializedBytes: body)
+        guard case let .whitelistOperation(whitelist)? = unsigned.subMessage else { XCTFail(); return }
+        guard case let .removeAllImpermanentKeys(flag)? = whitelist.subMessage else { XCTFail(); return }
+        XCTAssertTrue(flag)
+    }
+
     func testSecurityPermissionChangeRejectsShortKey() {
         let badKey = Data(repeating: 0x04, count: 33)
         XCTAssertThrowsError(

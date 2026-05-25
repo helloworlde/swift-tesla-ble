@@ -185,6 +185,38 @@ public enum Command: Sendable, Equatable {
         ///     key.
         ///   - role: New role for the key. Replaces any previously-set role.
         case updateKeyPermissions(publicKey: Data, role: KeyRole)
+
+        /// Adds a temporary (impermanent) key to the VCSEC whitelist that
+        /// the vehicle is allowed to evict on its own — typically for guest
+        /// or service flows.
+        ///
+        /// Mirrors `VCSEC_WhitelistOperation.addImpermanentKey`. Like
+        /// ``addKey(publicKey:role:formFactor:)`` this targets VCSEC, but it
+        /// flows through the signed transport because impermanent additions
+        /// happen after pairing.
+        ///
+        /// - Parameters:
+        ///   - publicKey: 65-byte uncompressed SEC1 encoding of the key.
+        ///   - role: Role to grant.
+        ///   - formFactor: Form factor for the in-car UI.
+        case addImpermanentKey(publicKey: Data, role: KeyRole, formFactor: KeyFormFactor)
+
+        /// Same as ``addImpermanentKey(publicKey:role:formFactor:)`` but
+        /// instructs the vehicle to drop any previously-installed
+        /// impermanent keys before adding this one.
+        ///
+        /// Mirrors `VCSEC_WhitelistOperation.addImpermanentKeyAndRemoveExisting`.
+        case addImpermanentKeyAndRemoveExisting(
+            publicKey: Data,
+            role: KeyRole,
+            formFactor: KeyFormFactor,
+        )
+
+        /// Removes every impermanent key from the VCSEC whitelist.
+        ///
+        /// Mirrors `VCSEC_WhitelistOperation.removeAllImpermanentKeys`.
+        /// Permanent keys are untouched.
+        case removeAllImpermanentKeys
     }
 
     // MARK: - Charge
