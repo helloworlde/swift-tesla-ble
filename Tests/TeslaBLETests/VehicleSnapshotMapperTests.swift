@@ -958,5 +958,131 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         let snapshot = VehicleSnapshotMapper.map(data)
         XCTAssertNotNil(snapshot.chargeSchedule)
         XCTAssertNotNil(snapshot.preconditionSchedule)
+        XCTAssertEqual(snapshot.chargeSchedule?.schedules, [])
+        XCTAssertNil(snapshot.chargeSchedule?.pendingScheduleWindow)
+        XCTAssertNil(snapshot.chargeSchedule?.chargeBufferMinutes)
+        XCTAssertNil(snapshot.chargeSchedule?.maxScheduleCount)
+        XCTAssertNil(snapshot.chargeSchedule?.nextScheduleEnabled)
+        XCTAssertNil(snapshot.chargeSchedule?.showScheduleCompleteState)
+        XCTAssertNil(snapshot.chargeSchedule?.timestampSecondsSinceEpoch)
+        XCTAssertEqual(snapshot.preconditionSchedule?.schedules, [])
+        XCTAssertNil(snapshot.preconditionSchedule?.pendingScheduleWindow)
+        XCTAssertNil(snapshot.preconditionSchedule?.maxScheduleCount)
+        XCTAssertNil(snapshot.preconditionSchedule?.nextScheduleEnabled)
+        XCTAssertNil(snapshot.preconditionSchedule?.timestampSecondsSinceEpoch)
+    }
+
+    func testChargeScheduleStateFullMapping() {
+        var entry = CarServer_ChargeSchedule()
+        entry.id = 1_730_000_000
+        entry.name = "Weekday home"
+        entry.daysOfWeek = 0b00111110  // Mon–Fri
+        entry.startEnabled = true
+        entry.startTime = 22 * 60       // 22:00
+        entry.endEnabled = true
+        entry.endTime = 6 * 60          // 06:00
+        entry.oneTime = false
+        entry.enabled = true
+        entry.latitude = 37.4419
+        entry.longitude = -122.1430
+
+        var window = CarServer_ChargeSchedule()
+        window.id = 1_730_000_001
+        window.name = "Pending"
+        window.daysOfWeek = 0b01000000
+        window.startEnabled = true
+        window.startTime = 60
+        window.enabled = false
+
+        var state = CarServer_ChargeScheduleState()
+        state.chargeSchedules = [entry]
+        state.chargeScheduleWindow = window
+        state.chargeBuffer = 30
+        state.maxNumChargeSchedules = 50
+        state.nextSchedule = true
+        state.showScheduleCompleteState = false
+        var ts = SwiftProtobuf.Google_Protobuf_Timestamp()
+        ts.seconds = 1_730_000_500
+        state.timestamp = ts
+
+        var data = CarServer_VehicleData()
+        data.chargeScheduleState = state
+
+        let result = VehicleSnapshotMapper.map(data).chargeSchedule
+        XCTAssertEqual(result?.schedules.count, 1)
+        let mapped = result?.schedules.first
+        XCTAssertEqual(mapped?.id, 1_730_000_000)
+        XCTAssertEqual(mapped?.name, "Weekday home")
+        XCTAssertEqual(mapped?.daysOfWeek, 0b00111110)
+        XCTAssertEqual(mapped?.startEnabled, true)
+        XCTAssertEqual(mapped?.startTimeMinutes, 22 * 60)
+        XCTAssertEqual(mapped?.endEnabled, true)
+        XCTAssertEqual(mapped?.endTimeMinutes, 6 * 60)
+        XCTAssertEqual(mapped?.oneTime, false)
+        XCTAssertEqual(mapped?.enabled, true)
+        XCTAssertEqual(mapped?.latitude, 37.4419)
+        XCTAssertEqual(mapped?.longitude, -122.1430)
+
+        let pending = result?.pendingScheduleWindow
+        XCTAssertEqual(pending?.id, 1_730_000_001)
+        XCTAssertEqual(pending?.name, "Pending")
+        XCTAssertEqual(pending?.startTimeMinutes, 60)
+
+        XCTAssertEqual(result?.chargeBufferMinutes, 30)
+        XCTAssertEqual(result?.maxScheduleCount, 50)
+        XCTAssertEqual(result?.nextScheduleEnabled, true)
+        XCTAssertEqual(result?.showScheduleCompleteState, false)
+        XCTAssertEqual(result?.timestampSecondsSinceEpoch, 1_730_000_500)
+    }
+
+    func testPreconditionScheduleStateFullMapping() {
+        var entry = CarServer_PreconditionSchedule()
+        entry.id = 1_730_000_100
+        entry.name = "Morning warmup"
+        entry.daysOfWeek = 0b00111110
+        entry.preconditionTime = 7 * 60 + 30
+        entry.oneTime = false
+        entry.enabled = true
+        entry.latitude = 47.6062
+        entry.longitude = -122.3321
+
+        var window = CarServer_PreconditionSchedule()
+        window.id = 1_730_000_101
+        window.name = "Pending"
+        window.preconditionTime = 8 * 60
+        window.enabled = true
+
+        var state = CarServer_PreconditioningScheduleState()
+        state.preconditionSchedules = [entry]
+        state.preconditioningScheduleWindow = window
+        state.maxNumPreconditionSchedules = 25
+        state.nextSchedule = false
+        var ts = SwiftProtobuf.Google_Protobuf_Timestamp()
+        ts.seconds = 1_730_000_900
+        state.timestamp = ts
+
+        var data = CarServer_VehicleData()
+        data.preconditioningScheduleState = state
+
+        let result = VehicleSnapshotMapper.map(data).preconditionSchedule
+        XCTAssertEqual(result?.schedules.count, 1)
+        let mapped = result?.schedules.first
+        XCTAssertEqual(mapped?.id, 1_730_000_100)
+        XCTAssertEqual(mapped?.name, "Morning warmup")
+        XCTAssertEqual(mapped?.daysOfWeek, 0b00111110)
+        XCTAssertEqual(mapped?.preconditionTimeMinutes, 7 * 60 + 30)
+        XCTAssertEqual(mapped?.oneTime, false)
+        XCTAssertEqual(mapped?.enabled, true)
+        XCTAssertEqual(mapped?.latitude, 47.6062)
+        XCTAssertEqual(mapped?.longitude, -122.3321)
+
+        let pending = result?.pendingScheduleWindow
+        XCTAssertEqual(pending?.id, 1_730_000_101)
+        XCTAssertEqual(pending?.preconditionTimeMinutes, 8 * 60)
+        XCTAssertEqual(pending?.enabled, true)
+
+        XCTAssertEqual(result?.maxScheduleCount, 25)
+        XCTAssertEqual(result?.nextScheduleEnabled, false)
+        XCTAssertEqual(result?.timestampSecondsSinceEpoch, 1_730_000_900)
     }
 }

@@ -23,8 +23,9 @@ enum VehicleSnapshotMapper {
             media: data.hasMediaState ? mapMedia(data.mediaState) : nil,
             mediaDetail: data.hasMediaDetailState ? mapMediaDetail(data.mediaDetailState) : nil,
             softwareUpdate: data.hasSoftwareUpdateState ? mapSoftwareUpdate(data.softwareUpdateState) : nil,
-            chargeSchedule: data.hasChargeScheduleState ? ChargeScheduleState() : nil,
-            preconditionSchedule: data.hasPreconditioningScheduleState ? PreconditionScheduleState() : nil,
+            chargeSchedule: data.hasChargeScheduleState ? mapChargeSchedule(data.chargeScheduleState) : nil,
+            preconditionSchedule: data.hasPreconditioningScheduleState
+                ? mapPreconditionSchedule(data.preconditioningScheduleState) : nil,
             parentalControls: data.hasParentalControlsState ? mapParentalControls(data.parentalControlsState) : nil,
         )
     }
@@ -468,6 +469,82 @@ enum VehicleSnapshotMapper {
             curfewEnabled: pb.optionalCurfewEnabled != nil ? pb.curfewEnabled : nil,
             curfewStartTime: pb.optionalCurfewStartTime != nil ? Int(pb.curfewStartTime) : nil,
             curfewEndTime: pb.optionalCurfewEndTime != nil ? Int(pb.curfewEndTime) : nil,
+        )
+    }
+
+    private static func mapChargeSchedule(
+        _ pb: CarServer_ChargeScheduleState,
+    ) -> ChargeScheduleState {
+        let pendingWindow: ChargeScheduleEntry? = {
+            if case .chargeScheduleWindow(let entry) = pb.optionalChargeScheduleWindow {
+                return mapChargeScheduleEntry(entry)
+            }
+            return nil
+        }()
+
+        return ChargeScheduleState(
+            schedules: pb.chargeSchedules.map(mapChargeScheduleEntry(_:)),
+            pendingScheduleWindow: pendingWindow,
+            chargeBufferMinutes: pb.optionalChargeBuffer != nil ? Int(pb.chargeBuffer) : nil,
+            maxScheduleCount: pb.optionalMaxNumChargeSchedules != nil
+                ? pb.maxNumChargeSchedules : nil,
+            nextScheduleEnabled: pb.optionalNextSchedule != nil ? pb.nextSchedule : nil,
+            showScheduleCompleteState: pb.optionalShowScheduleCompleteState != nil
+                ? pb.showScheduleCompleteState : nil,
+            timestampSecondsSinceEpoch: pb.hasTimestamp ? pb.timestamp.seconds : nil,
+        )
+    }
+
+    private static func mapChargeScheduleEntry(
+        _ pb: CarServer_ChargeSchedule,
+    ) -> ChargeScheduleEntry {
+        ChargeScheduleEntry(
+            id: pb.id,
+            name: pb.name,
+            daysOfWeek: pb.daysOfWeek,
+            startEnabled: pb.startEnabled,
+            startTimeMinutes: pb.startTime,
+            endEnabled: pb.endEnabled,
+            endTimeMinutes: pb.endTime,
+            oneTime: pb.oneTime,
+            enabled: pb.enabled,
+            latitude: pb.latitude,
+            longitude: pb.longitude,
+        )
+    }
+
+    private static func mapPreconditionSchedule(
+        _ pb: CarServer_PreconditioningScheduleState,
+    ) -> PreconditionScheduleState {
+        let pendingWindow: PreconditionScheduleEntry? = {
+            if case .preconditioningScheduleWindow(let entry) = pb.optionalPreconditioningScheduleWindow {
+                return mapPreconditionScheduleEntry(entry)
+            }
+            return nil
+        }()
+
+        return PreconditionScheduleState(
+            schedules: pb.preconditionSchedules.map(mapPreconditionScheduleEntry(_:)),
+            pendingScheduleWindow: pendingWindow,
+            maxScheduleCount: pb.optionalMaxNumPreconditionSchedules != nil
+                ? pb.maxNumPreconditionSchedules : nil,
+            nextScheduleEnabled: pb.optionalNextSchedule != nil ? pb.nextSchedule : nil,
+            timestampSecondsSinceEpoch: pb.hasTimestamp ? pb.timestamp.seconds : nil,
+        )
+    }
+
+    private static func mapPreconditionScheduleEntry(
+        _ pb: CarServer_PreconditionSchedule,
+    ) -> PreconditionScheduleEntry {
+        PreconditionScheduleEntry(
+            id: pb.id,
+            name: pb.name,
+            daysOfWeek: pb.daysOfWeek,
+            preconditionTimeMinutes: pb.preconditionTime,
+            oneTime: pb.oneTime,
+            enabled: pb.enabled,
+            latitude: pb.latitude,
+            longitude: pb.longitude,
         )
     }
 
