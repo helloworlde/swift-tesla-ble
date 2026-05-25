@@ -58,7 +58,7 @@ public enum VehicleQueryResult: Sendable {
     /// Result of ``VehicleQuery/bodyControllerState``.
     case bodyControllerState(BodyControllerState)
     /// Result of ``VehicleQuery/nearbyCharging(includeMetadata:radiusMiles:count:)``.
-    case nearbyCharging(CarServer_NearbyChargingSites)
+    case nearbyCharging(NearbyChargingSites)
 }
 
 /// Encodes a `VehicleQuery` into the `(domain, body)` pair used by
@@ -156,7 +156,7 @@ enum VehicleQueryDecoder {
             guard case let .getNearbyChargingSites(sites)? = response.responseMsg else {
                 throw Error.unexpectedMessageType("expected getNearbyChargingSites in response")
             }
-            return .nearbyCharging(sites)
+            return .nearbyCharging(NearbyChargingMapper.map(sites))
         }
     }
 
