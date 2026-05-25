@@ -126,6 +126,29 @@ public enum Command: Sendable, Equatable {
         ///   - formFactor: Form factor metadata the vehicle displays in its
         ///     key-management UI.
         case addKey(publicKey: Data, role: KeyRole, formFactor: KeyFormFactor)
+
+        /// Grants a role to a key already present in the VCSEC whitelist.
+        ///
+        /// Mirrors `VCSEC_WhitelistOperation.addPermissionsToPublicKey`. The
+        /// vehicle uses role assignments (owner, driver, charging-manager,
+        /// …) as its permission model — there is no finer-grained permission
+        /// flag set in the protocol.
+        ///
+        /// - Parameters:
+        ///   - publicKey: 65-byte uncompressed SEC1 encoding of the target
+        ///     key, which must already be whitelisted.
+        ///   - role: Role to grant.
+        case addPermissions(publicKey: Data, role: KeyRole)
+
+        /// Revokes a role from a key already present in the VCSEC whitelist.
+        ///
+        /// Mirrors `VCSEC_WhitelistOperation.removePermissionsFromPublicKey`.
+        ///
+        /// - Parameters:
+        ///   - publicKey: 65-byte uncompressed SEC1 encoding of the target
+        ///     key.
+        ///   - role: Role to revoke.
+        case removePermissions(publicKey: Data, role: KeyRole)
     }
 
     // MARK: - Charge

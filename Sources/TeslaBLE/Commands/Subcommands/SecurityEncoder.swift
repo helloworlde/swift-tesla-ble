@@ -34,6 +34,14 @@ enum SecurityEncoder {
             let body = try encodeRemoveKey(publicKey: publicKey)
             return (.vehicleSecurity, body)
 
+        case let .addPermissions(publicKey, role):
+            let body = try encodePermissionChange(publicKey: publicKey, role: role, kind: .add)
+            return (.vehicleSecurity, body)
+
+        case let .removePermissions(publicKey, role):
+            let body = try encodePermissionChange(publicKey: publicKey, role: role, kind: .remove)
+            return (.vehicleSecurity, body)
+
         // MARK: - Infotainment: Sentry, Valet, Guest
 
         case let .setSentryMode(on):
@@ -191,6 +199,44 @@ enum SecurityEncoder {
         return try serialize(unsigned)
     }
 
+    private enum PermissionChangeKind {
+        case add
+        case remove
+    }
+
+    /// Encodes `WhitelistOperation.addPermissionsToPublicKey` and its
+    /// counterpart by setting `key` and `keyRole` on a `VCSEC_PermissionChange`.
+    /// The wire shape is identical to `addKeyToWhitelistAndAddPermissions`
+    /// minus the `metadataForKey` envelope, which only applies when the key
+    /// is being introduced for the first time.
+    private static func encodePermissionChange(
+        publicKey: Data,
+        role: KeyRole,
+        kind: PermissionChangeKind,
+    ) throws -> Data {
+        guard publicKey.count == 65 else {
+            throw Error.encodingFailed("permission change publicKey must be 65-byte uncompressed SEC1 (got \(publicKey.count))")
+        }
+        var pubKey = VCSEC_PublicKey()
+        pubKey.publicKeyRaw = publicKey
+
+        var permChange = VCSEC_PermissionChange()
+        permChange.key = pubKey
+        permChange.keyRole = Self.mapRole(role)
+
+        var whitelist = VCSEC_WhitelistOperation()
+        switch kind {
+        case .add:
+            whitelist.subMessage = .addPermissionsToPublicKey(permChange)
+        case .remove:
+            whitelist.subMessage = .removePermissionsFromPublicKey(permChange)
+        }
+
+        var unsigned = VCSEC_UnsignedMessage()
+        unsigned.subMessage = .whitelistOperation(whitelist)
+        return try serialize(unsigned)
+    }
+
     private static func encodeRemoveKey(publicKey: Data) throws -> Data {
         guard publicKey.count == 65 else {
             throw Error.encodingFailed("removeKey publicKey must be 65-byte uncompressed SEC1 (got \(publicKey.count))")
@@ -272,7 +318,8 @@ enum SecurityEncoder {
             var req = VCSEC_ClosureMoveRequest()
             req.tonneau = .closureMoveTypeStop
             unsigned.subMessage = .closureMoveRequest(req)
-        case .addKey, .removeKey, .setSentryMode, .setValetMode, .eraseGuestData,
+        case .addKey, .removeKey, .addPermissions, .removePermissions,
+             .setSentryMode, .setValetMode, .eraseGuestData,
              .resetPin, .resetValetPin, .setGuestMode, .setPinToDrive, .clearPinToDrive,
              .activateSpeedLimit, .deactivateSpeedLimit, .setSpeedLimit,
              .clearSpeedLimitPin, .clearSpeedLimitPinAdmin:

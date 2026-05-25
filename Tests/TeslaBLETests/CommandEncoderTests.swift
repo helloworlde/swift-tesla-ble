@@ -349,6 +349,55 @@ final class CommandEncoderTests: XCTestCase {
         }
     }
 
+    func testSecurityAddPermissionsEncodesPermissionChange() throws {
+        var publicKey = Data([0x04])
+        publicKey.append(Data(repeating: 0x33, count: 32))
+        publicKey.append(Data(repeating: 0x44, count: 32))
+
+        let (domain, body) = try CommandEncoder.encode(
+            .security(.addPermissions(publicKey: publicKey, role: .driver)),
+        )
+        XCTAssertEqual(domain, .vehicleSecurity)
+        let unsigned = try VCSEC_UnsignedMessage(serializedBytes: body)
+        guard case let .whitelistOperation(whitelist)? = unsigned.subMessage else { XCTFail(); return }
+        guard case let .addPermissionsToPublicKey(permChange)? = whitelist.subMessage else { XCTFail(); return }
+        XCTAssertEqual(permChange.key.publicKeyRaw, publicKey)
+        XCTAssertEqual(permChange.keyRole, .driver)
+        // metadataForKey is reserved for the initial addKey enrollment;
+        // permission edits never carry it.
+        XCTAssertFalse(whitelist.hasMetadataForKey)
+    }
+
+    func testSecurityRemovePermissionsEncodesPermissionChange() throws {
+        var publicKey = Data([0x04])
+        publicKey.append(Data(repeating: 0x55, count: 32))
+        publicKey.append(Data(repeating: 0x66, count: 32))
+
+        let (domain, body) = try CommandEncoder.encode(
+            .security(.removePermissions(publicKey: publicKey, role: .chargingManager)),
+        )
+        XCTAssertEqual(domain, .vehicleSecurity)
+        let unsigned = try VCSEC_UnsignedMessage(serializedBytes: body)
+        guard case let .whitelistOperation(whitelist)? = unsigned.subMessage else { XCTFail(); return }
+        guard case let .removePermissionsFromPublicKey(permChange)? = whitelist.subMessage else { XCTFail(); return }
+        XCTAssertEqual(permChange.key.publicKeyRaw, publicKey)
+        XCTAssertEqual(permChange.keyRole, .chargingManager)
+    }
+
+    func testSecurityPermissionChangeRejectsShortKey() {
+        let badKey = Data(repeating: 0x04, count: 33)
+        XCTAssertThrowsError(
+            try CommandEncoder.encode(.security(.addPermissions(publicKey: badKey, role: .owner))),
+        ) { error in
+            guard case SecurityEncoder.Error.encodingFailed = error else { XCTFail(); return }
+        }
+        XCTAssertThrowsError(
+            try CommandEncoder.encode(.security(.removePermissions(publicKey: badKey, role: .owner))),
+        ) { error in
+            guard case SecurityEncoder.Error.encodingFailed = error else { XCTFail(); return }
+        }
+    }
+
     // Group C — Security Infotainment eraseGuestData
 
     func testSecurityEraseGuestData() throws {
