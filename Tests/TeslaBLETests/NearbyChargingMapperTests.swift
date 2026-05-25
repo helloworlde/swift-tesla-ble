@@ -1,6 +1,6 @@
-import XCTest
 import SwiftProtobuf
 @testable import TeslaBLE
+import XCTest
 
 final class NearbyChargingMapperTests: XCTestCase {
     func testMapsAllFields() {

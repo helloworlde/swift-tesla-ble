@@ -383,7 +383,7 @@ enum SecurityEncoder {
         case .vehicleMonitor: .vehicleMonitor
         case .chargingManager: .chargingManager
         case .guest: .guest
-        case .unrecognized(let i): Keys_Role(rawValue: i) ?? .none
+        case let .unrecognized(i): Keys_Role(rawValue: i) ?? .none
         }
     }
 
@@ -394,7 +394,7 @@ enum SecurityEncoder {
         case .iosDevice: .iosDevice
         case .androidDevice: .androidDevice
         case .cloudKey: .cloudKey
-        case .unrecognized(let i): VCSEC_KeyFormFactor(rawValue: i) ?? .unknown
+        case let .unrecognized(i): VCSEC_KeyFormFactor(rawValue: i) ?? .unknown
         }
     }
 

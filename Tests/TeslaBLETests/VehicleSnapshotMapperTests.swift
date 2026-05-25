@@ -110,7 +110,7 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         charge.outletSocLimit = 30
         charge.powerFeedSocLimit = 25
         charge.outletTimeRemaining = 7200
-        charge.powerFeedTimeRemaining = 14_400
+        charge.powerFeedTimeRemaining = 14400
         charge.outletMaxTimerMinutes = 720
 
         // Powershare cluster.
@@ -208,7 +208,7 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         XCTAssertEqual(cs?.outletSocLimitPercent, 30)
         XCTAssertEqual(cs?.powerFeedSocLimitPercent, 25)
         XCTAssertEqual(cs?.outletTimeRemainingSeconds, 7200)
-        XCTAssertEqual(cs?.powerFeedTimeRemainingSeconds, 14_400)
+        XCTAssertEqual(cs?.powerFeedTimeRemainingSeconds, 14400)
         XCTAssertEqual(cs?.outletMaxTimerMinutes, 720)
         XCTAssertEqual(cs?.chargePortLatch, .engaged)
         XCTAssertEqual(cs?.chargePortColor, .green)
@@ -944,13 +944,13 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         status.type = .scheduled(CarServer_Void())
         update.status = status
         update.scheduledTimeMs = 1_700_000_000_000
-        update.warningTimeRemainingMs = 60_000
+        update.warningTimeRemainingMs = 60000
         data.softwareUpdateState = update
 
         let u = VehicleSnapshotMapper.map(data).softwareUpdate
         XCTAssertEqual(u?.status, .scheduled)
         XCTAssertEqual(u?.scheduledTimeMs, 1_700_000_000_000)
-        XCTAssertEqual(u?.warningTimeRemainingMs, 60_000)
+        XCTAssertEqual(u?.warningTimeRemainingMs, 60000)
     }
 
     func testSoftwareUpdateStatusAllVariants() {
@@ -1043,11 +1043,11 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         var entry = CarServer_ChargeSchedule()
         entry.id = 1_730_000_000
         entry.name = "Weekday home"
-        entry.daysOfWeek = 0b00111110  // Mon–Fri
+        entry.daysOfWeek = 0b0011_1110 // Mon–Fri
         entry.startEnabled = true
-        entry.startTime = 22 * 60       // 22:00
+        entry.startTime = 22 * 60 // 22:00
         entry.endEnabled = true
-        entry.endTime = 6 * 60          // 06:00
+        entry.endTime = 6 * 60 // 06:00
         entry.oneTime = false
         entry.enabled = true
         entry.latitude = 37.4419
@@ -1056,7 +1056,7 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         var window = CarServer_ChargeSchedule()
         window.id = 1_730_000_001
         window.name = "Pending"
-        window.daysOfWeek = 0b01000000
+        window.daysOfWeek = 0b0100_0000
         window.startEnabled = true
         window.startTime = 60
         window.enabled = false
@@ -1080,7 +1080,7 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         let mapped = result?.schedules.first
         XCTAssertEqual(mapped?.id, 1_730_000_000)
         XCTAssertEqual(mapped?.name, "Weekday home")
-        XCTAssertEqual(mapped?.daysOfWeek, 0b00111110)
+        XCTAssertEqual(mapped?.daysOfWeek, 0b0011_1110)
         XCTAssertEqual(mapped?.startEnabled, true)
         XCTAssertEqual(mapped?.startTimeMinutes, 22 * 60)
         XCTAssertEqual(mapped?.endEnabled, true)
@@ -1106,7 +1106,7 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         var entry = CarServer_PreconditionSchedule()
         entry.id = 1_730_000_100
         entry.name = "Morning warmup"
-        entry.daysOfWeek = 0b00111110
+        entry.daysOfWeek = 0b0011_1110
         entry.preconditionTime = 7 * 60 + 30
         entry.oneTime = false
         entry.enabled = true
@@ -1136,7 +1136,7 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         let mapped = result?.schedules.first
         XCTAssertEqual(mapped?.id, 1_730_000_100)
         XCTAssertEqual(mapped?.name, "Morning warmup")
-        XCTAssertEqual(mapped?.daysOfWeek, 0b00111110)
+        XCTAssertEqual(mapped?.daysOfWeek, 0b0011_1110)
         XCTAssertEqual(mapped?.preconditionTimeMinutes, 7 * 60 + 30)
         XCTAssertEqual(mapped?.oneTime, false)
         XCTAssertEqual(mapped?.enabled, true)

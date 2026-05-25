@@ -47,7 +47,7 @@ enum VCSECStatusMapper {
         case .closurestateFailedUnlatch: .failedUnlatch
         case .closurestateOpening: .opening
         case .closurestateClosing: .closing
-        case .UNRECOGNIZED(let i): .unrecognized(i)
+        case let .UNRECOGNIZED(i): .unrecognized(i)
         }
     }
 
@@ -59,7 +59,7 @@ enum VCSECStatusMapper {
         case .vehiclelockstateLocked: .locked
         case .vehiclelockstateInternalLocked: .internalLocked
         case .vehiclelockstateSelectiveUnlocked: .selectiveUnlocked
-        case .UNRECOGNIZED(let i): .unrecognized(i)
+        case let .UNRECOGNIZED(i): .unrecognized(i)
         }
     }
 
@@ -70,7 +70,7 @@ enum VCSECStatusMapper {
         case .vehicleSleepStatusUnknown: .unknown
         case .vehicleSleepStatusAwake: .awake
         case .vehicleSleepStatusAsleep: .asleep
-        case .UNRECOGNIZED(let i): .unrecognized(i)
+        case let .UNRECOGNIZED(i): .unrecognized(i)
         }
     }
 
@@ -81,7 +81,7 @@ enum VCSECStatusMapper {
         case .vehicleUserPresenceUnknown: .unknown
         case .vehicleUserPresenceNotPresent: .notPresent
         case .vehicleUserPresencePresent: .present
-        case .UNRECOGNIZED(let i): .unrecognized(i)
+        case let .UNRECOGNIZED(i): .unrecognized(i)
         }
     }
 
@@ -118,7 +118,7 @@ enum VCSECStatusMapper {
         case .iosDevice: .iosDevice
         case .androidDevice: .androidDevice
         case .cloudKey: .cloudKey
-        case .UNRECOGNIZED(let i): .unrecognized(i)
+        case let .UNRECOGNIZED(i): .unrecognized(i)
         }
     }
 
@@ -132,7 +132,7 @@ enum VCSECStatusMapper {
         case .vehicleMonitor: .vehicleMonitor
         case .chargingManager: .chargingManager
         case .guest: .guest
-        case .UNRECOGNIZED(let i): .unrecognized(i)
+        case let .UNRECOGNIZED(i): .unrecognized(i)
         }
     }
 }

@@ -1,5 +1,5 @@
-import XCTest
 @testable import TeslaBLE
+import XCTest
 
 final class VCSECStatusMapperTests: XCTestCase {
     func testMapsAllFields() {

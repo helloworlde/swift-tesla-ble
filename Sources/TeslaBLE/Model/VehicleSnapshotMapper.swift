@@ -426,40 +426,40 @@ enum VehicleSnapshotMapper {
         _ pb: CarServer_MediaSourceType,
     ) -> MediaState.MediaSource {
         switch pb {
-        case .none: return .none
-        case .am: return .am
-        case .fm: return .fm
-        case .xm: return .xm
-        case .slacker: return .slacker
-        case .localFiles: return .localFiles
-        case .iPod: return .iPod
-        case .bluetooth: return .bluetooth
-        case .auxIn: return .auxIn
-        case .dab: return .dab
-        case .rdio: return .rdio
-        case .spotify: return .spotify
-        case .usradio: return .usRadio
-        case .euradio: return .euRadio
-        case .mediaFile: return .mediaFile
-        case .tuneIn: return .tuneIn
-        case .stingray: return .stingray
-        case .siriusXm: return .siriusXm
-        case .tidal: return .tidal
-        case .qqmusic: return .qqmusic
-        case .qqmusic2: return .qqmusic2
-        case .ximalaya: return .ximalaya
-        case .onlineRadio: return .onlineRadio
-        case .onlineRadio2: return .onlineRadio2
-        case .netEaseMusic: return .netEaseMusic
-        case .browser: return .browser
-        case .theater: return .theater
-        case .game: return .game
-        case .tutorial: return .tutorial
-        case .toybox: return .toybox
-        case .recentsFavorites: return .recentsFavorites
-        case .homeApps: return .homeApps
-        case .search: return .search
-        case .UNRECOGNIZED(let raw): return .unknown(raw)
+        case .none: .none
+        case .am: .am
+        case .fm: .fm
+        case .xm: .xm
+        case .slacker: .slacker
+        case .localFiles: .localFiles
+        case .iPod: .iPod
+        case .bluetooth: .bluetooth
+        case .auxIn: .auxIn
+        case .dab: .dab
+        case .rdio: .rdio
+        case .spotify: .spotify
+        case .usradio: .usRadio
+        case .euradio: .euRadio
+        case .mediaFile: .mediaFile
+        case .tuneIn: .tuneIn
+        case .stingray: .stingray
+        case .siriusXm: .siriusXm
+        case .tidal: .tidal
+        case .qqmusic: .qqmusic
+        case .qqmusic2: .qqmusic2
+        case .ximalaya: .ximalaya
+        case .onlineRadio: .onlineRadio
+        case .onlineRadio2: .onlineRadio2
+        case .netEaseMusic: .netEaseMusic
+        case .browser: .browser
+        case .theater: .theater
+        case .game: .game
+        case .tutorial: .tutorial
+        case .toybox: .toybox
+        case .recentsFavorites: .recentsFavorites
+        case .homeApps: .homeApps
+        case .search: .search
+        case let .UNRECOGNIZED(raw): .unknown(raw)
         }
     }
 
@@ -467,10 +467,10 @@ enum VehicleSnapshotMapper {
         _ pb: CarServer_MediaPlaybackStatus,
     ) -> MediaState.PlaybackStatus? {
         switch pb {
-        case .stopped: return .stopped
-        case .playing: return .playing
-        case .paused: return .paused
-        case .UNRECOGNIZED: return nil
+        case .stopped: .stopped
+        case .playing: .playing
+        case .paused: .paused
+        case .UNRECOGNIZED: nil
         }
     }
 
@@ -534,7 +534,7 @@ enum VehicleSnapshotMapper {
         _ pb: CarServer_ChargeScheduleState,
     ) -> ChargeScheduleState {
         let pendingWindow: ChargeScheduleEntry? = {
-            if case .chargeScheduleWindow(let entry) = pb.optionalChargeScheduleWindow {
+            if case let .chargeScheduleWindow(entry) = pb.optionalChargeScheduleWindow {
                 return mapChargeScheduleEntry(entry)
             }
             return nil
@@ -575,7 +575,7 @@ enum VehicleSnapshotMapper {
         _ pb: CarServer_PreconditioningScheduleState,
     ) -> PreconditionScheduleState {
         let pendingWindow: PreconditionScheduleEntry? = {
-            if case .preconditioningScheduleWindow(let entry) = pb.optionalPreconditioningScheduleWindow {
+            if case let .preconditioningScheduleWindow(entry) = pb.optionalPreconditioningScheduleWindow {
                 return mapPreconditionScheduleEntry(entry)
             }
             return nil
@@ -651,14 +651,14 @@ enum VehicleSnapshotMapper {
         _ pb: VCSEC_ClosureState_E,
     ) -> ClosuresState.TonneauState? {
         switch pb {
-        case .closurestateClosed: return .closed
-        case .closurestateOpen: return .open
-        case .closurestateAjar: return .ajar
-        case .closurestateUnknown: return .unknown
-        case .closurestateFailedUnlatch: return .failedUnlatch
-        case .closurestateOpening: return .opening
-        case .closurestateClosing: return .closing
-        case .UNRECOGNIZED: return nil
+        case .closurestateClosed: .closed
+        case .closurestateOpen: .open
+        case .closurestateAjar: .ajar
+        case .closurestateUnknown: .unknown
+        case .closurestateFailedUnlatch: .failedUnlatch
+        case .closurestateOpening: .opening
+        case .closurestateClosing: .closing
+        case .UNRECOGNIZED: nil
         }
     }
 
@@ -708,13 +708,13 @@ enum VehicleSnapshotMapper {
         _ pb: CarServer_ChargeState.ChargeLimitReason,
     ) -> ChargeState.ChargeLimitReason? {
         switch pb {
-        case .unknown: return .unknown
-        case .none: return ChargeState.ChargeLimitReason.none
-        case .evse: return .evse
-        case .battTempLow: return .batteryTempLow
-        case .highSoc: return .highSoc
-        case .cabin: return .cabin
-        case .UNRECOGNIZED: return nil
+        case .unknown: .unknown
+        case .none: ChargeState.ChargeLimitReason.none
+        case .evse: .evse
+        case .battTempLow: .batteryTempLow
+        case .highSoc: .highSoc
+        case .cabin: .cabin
+        case .UNRECOGNIZED: nil
         }
     }
 
@@ -722,10 +722,10 @@ enum VehicleSnapshotMapper {
         _ pb: CarServer_ChargeState.ScheduledChargingMode,
     ) -> ChargeState.ScheduledChargingMode? {
         switch pb {
-        case .off: return .off
-        case .startAt: return .startAt
-        case .departBy: return .departBy
-        case .UNRECOGNIZED: return nil
+        case .off: .off
+        case .startAt: .startAt
+        case .departBy: .departBy
+        case .UNRECOGNIZED: nil
         }
     }
 
@@ -745,18 +745,18 @@ enum VehicleSnapshotMapper {
         _ pb: CarServer_ChargeState.ChargePortColor_E,
     ) -> ChargeState.ChargePortColor? {
         switch pb {
-        case .chargePortColorOff: return .off
-        case .chargePortColorRed: return .red
-        case .chargePortColorGreen: return .green
-        case .chargePortColorBlue: return .blue
-        case .chargePortColorWhite: return .white
-        case .chargePortColorFlashingGreen: return .flashingGreen
-        case .chargePortColorFlashingAmber: return .flashingAmber
-        case .chargePortColorAmber: return .amber
-        case .chargePortColorRave: return .rave
-        case .chargePortColorDebug: return .debug
-        case .chargePortColorFlashingBlue: return .flashingBlue
-        case .UNRECOGNIZED: return nil
+        case .chargePortColorOff: .off
+        case .chargePortColorRed: .red
+        case .chargePortColorGreen: .green
+        case .chargePortColorBlue: .blue
+        case .chargePortColorWhite: .white
+        case .chargePortColorFlashingGreen: .flashingGreen
+        case .chargePortColorFlashingAmber: .flashingAmber
+        case .chargePortColorAmber: .amber
+        case .chargePortColorRave: .rave
+        case .chargePortColorDebug: .debug
+        case .chargePortColorFlashingBlue: .flashingBlue
+        case .UNRECOGNIZED: nil
         }
     }
 
@@ -804,10 +804,10 @@ enum VehicleSnapshotMapper {
         _ pb: CarServer_ChargeState.OutletState,
     ) -> ChargeState.OutletState? {
         switch pb {
-        case .off: return .off
-        case .cabinAndBed: return .cabinAndBed
-        case .cabin: return .cabin
-        case .UNRECOGNIZED: return nil
+        case .off: .off
+        case .cabinAndBed: .cabinAndBed
+        case .cabin: .cabin
+        case .UNRECOGNIZED: nil
         }
     }
 
@@ -815,10 +815,10 @@ enum VehicleSnapshotMapper {
         _ pb: CarServer_ChargeState.PowerFeedState,
     ) -> ChargeState.OutletState? {
         switch pb {
-        case .off: return .off
-        case .cabinAndBed: return .cabinAndBed
-        case .cabin: return .cabin
-        case .UNRECOGNIZED: return nil
+        case .off: .off
+        case .cabinAndBed: .cabinAndBed
+        case .cabin: .cabin
+        case .UNRECOGNIZED: nil
         }
     }
 
@@ -826,10 +826,10 @@ enum VehicleSnapshotMapper {
         _ pb: CarServer_ChargeState.PowershareType,
     ) -> PowershareState.PowershareType? {
         switch pb {
-        case .none: return PowershareState.PowershareType.none
-        case .load: return .load
-        case .home: return .home
-        case .UNRECOGNIZED: return nil
+        case .none: PowershareState.PowershareType.none
+        case .load: .load
+        case .home: .home
+        case .UNRECOGNIZED: nil
         }
     }
 
@@ -837,13 +837,13 @@ enum VehicleSnapshotMapper {
         _ pb: CarServer_ChargeState.PowershareStatus,
     ) -> PowershareState.PowershareStatus? {
         switch pb {
-        case .inactive: return .inactive
-        case .init_: return .initializing
-        case .active: return .active
-        case .stopped: return .stopped
-        case .handshaking: return .handshaking
-        case .activeReconnectingSoon: return .activeReconnectingSoon
-        case .UNRECOGNIZED: return nil
+        case .inactive: .inactive
+        case .init_: .initializing
+        case .active: .active
+        case .stopped: .stopped
+        case .handshaking: .handshaking
+        case .activeReconnectingSoon: .activeReconnectingSoon
+        case .UNRECOGNIZED: nil
         }
     }
 
@@ -851,14 +851,14 @@ enum VehicleSnapshotMapper {
         _ pb: CarServer_ChargeState.PowershareStopReason,
     ) -> PowershareState.PowershareStopReason? {
         switch pb {
-        case .none: return PowershareState.PowershareStopReason.none
-        case .soctooLow: return .socTooLow
-        case .retry: return .retry
-        case .fault: return .fault
-        case .user: return .user
-        case .reconnecting: return .reconnecting
-        case .authentication: return .authentication
-        case .UNRECOGNIZED: return nil
+        case .none: PowershareState.PowershareStopReason.none
+        case .soctooLow: .socTooLow
+        case .retry: .retry
+        case .fault: .fault
+        case .user: .user
+        case .reconnecting: .reconnecting
+        case .authentication: .authentication
+        case .UNRECOGNIZED: nil
         }
     }
 
@@ -866,9 +866,9 @@ enum VehicleSnapshotMapper {
         _ pb: CarServer_ClimateState.HvacAutoRequest,
     ) -> ClimateState.HvacAutoRequest? {
         switch pb {
-        case .on: return .on
-        case .override: return .override
-        case .UNRECOGNIZED: return nil
+        case .on: .on
+        case .override: .override
+        case .UNRECOGNIZED: nil
         }
     }
 
@@ -889,10 +889,10 @@ enum VehicleSnapshotMapper {
         _ pb: CarServer_ClimateState.CabinOverheatProtection_E,
     ) -> ClimateState.CabinOverheatProtectionMode? {
         switch pb {
-        case .cabinOverheatProtectionOff: return .off
-        case .cabinOverheatProtectionOn: return .on
-        case .cabinOverheatProtectionFanOnly: return .fanOnly
-        case .UNRECOGNIZED: return nil
+        case .cabinOverheatProtectionOff: .off
+        case .cabinOverheatProtectionOn: .on
+        case .cabinOverheatProtectionFanOnly: .fanOnly
+        case .UNRECOGNIZED: nil
         }
     }
 
@@ -900,11 +900,11 @@ enum VehicleSnapshotMapper {
         _ pb: CarServer_ClimateState.CopActivationTemp,
     ) -> ClimateState.CopActivationTemperature? {
         switch pb {
-        case .unspecified: return .unspecified
-        case .low: return .low
-        case .medium: return .medium
-        case .high: return .high
-        case .UNRECOGNIZED: return nil
+        case .unspecified: .unspecified
+        case .low: .low
+        case .medium: .medium
+        case .high: .high
+        case .UNRECOGNIZED: nil
         }
     }
 
@@ -912,14 +912,14 @@ enum VehicleSnapshotMapper {
         _ pb: CarServer_ClimateState.COPNotRunningReason,
     ) -> ClimateState.CopNotRunningReason? {
         switch pb {
-        case .noReason: return .noReason
-        case .userInteraction: return .userInteraction
-        case .energyConsumptionReached: return .energyConsumptionReached
-        case .timeout: return .timeout
-        case .lowSolarLoad: return .lowSolarLoad
-        case .fault: return .fault
-        case .cabinBelowThreshold: return .cabinBelowThreshold
-        case .UNRECOGNIZED: return nil
+        case .noReason: .noReason
+        case .userInteraction: .userInteraction
+        case .energyConsumptionReached: .energyConsumptionReached
+        case .timeout: .timeout
+        case .lowSolarLoad: .lowSolarLoad
+        case .fault: .fault
+        case .cabinBelowThreshold: .cabinBelowThreshold
+        case .UNRECOGNIZED: nil
         }
     }
 
@@ -927,11 +927,11 @@ enum VehicleSnapshotMapper {
         _ pb: CarServer_StwHeatLevel,
     ) -> ClimateState.SteeringWheelHeatLevel? {
         switch pb {
-        case .unknown: return .unknown
-        case .off: return .off
-        case .low: return .low
-        case .high: return .high
-        case .UNRECOGNIZED: return nil
+        case .unknown: .unknown
+        case .off: .off
+        case .low: .low
+        case .high: .high
+        case .UNRECOGNIZED: nil
         }
     }
 }
