@@ -15,8 +15,8 @@ import SwiftProtobuf
 public enum VehicleQuery: Sendable, Equatable {
     /// Lists every key registered in the VCSEC whitelist with slot metadata.
     ///
-    /// Yields ``VehicleQueryResult/keySummary(_:)`` wrapping the raw
-    /// `VCSEC_WhitelistInfo` protobuf.
+    /// Yields ``VehicleQueryResult/keySummary(_:)`` wrapping a
+    /// ``KeyWhitelistInfo``.
     case keySummary
 
     /// Returns detailed information for a single whitelist slot.
@@ -52,9 +52,9 @@ public enum VehicleQuery: Sendable, Equatable {
 /// protobuf message so callers can project into their own types as needed.
 public enum VehicleQueryResult: Sendable {
     /// Result of ``VehicleQuery/keySummary``.
-    case keySummary(VCSEC_WhitelistInfo)
+    case keySummary(KeyWhitelistInfo)
     /// Result of ``VehicleQuery/keyInfo(slot:)``.
-    case keyInfo(VCSEC_WhitelistEntryInfo)
+    case keyInfo(KeyWhitelistEntry)
     /// Result of ``VehicleQuery/bodyControllerState``.
     case bodyControllerState(BodyControllerState)
     /// Result of ``VehicleQuery/nearbyCharging(includeMetadata:radiusMiles:count:)``.
@@ -130,14 +130,14 @@ enum VehicleQueryDecoder {
             guard case let .whitelistInfo(info)? = message.subMessage else {
                 throw Error.unexpectedMessageType("expected whitelistInfo, got \(describe(message.subMessage))")
             }
-            return .keySummary(info)
+            return .keySummary(VCSECStatusMapper.map(info))
 
         case .keyInfo:
             let message = try parseVCSEC(bytes)
             guard case let .whitelistEntryInfo(info)? = message.subMessage else {
                 throw Error.unexpectedMessageType("expected whitelistEntryInfo, got \(describe(message.subMessage))")
             }
-            return .keyInfo(info)
+            return .keyInfo(VCSECStatusMapper.map(info))
 
         case .bodyControllerState:
             let message = try parseVCSEC(bytes)

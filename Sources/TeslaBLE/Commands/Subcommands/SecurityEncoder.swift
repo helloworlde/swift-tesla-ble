@@ -167,8 +167,8 @@ enum SecurityEncoder {
     /// pairing flow.
     private static func encodeAddKey(
         publicKey: Data,
-        role: Command.KeyRole,
-        formFactor: Command.KeyFormFactor,
+        role: KeyRole,
+        formFactor: KeyFormFactor,
     ) throws -> Data {
         guard publicKey.count == 65 else {
             throw Error.encodingFailed("addKey publicKey must be 65-byte uncompressed SEC1 (got \(publicKey.count))")
@@ -206,20 +206,28 @@ enum SecurityEncoder {
         return try serialize(unsigned)
     }
 
-    private static func mapRole(_ role: Command.KeyRole) -> Keys_Role {
+    private static func mapRole(_ role: KeyRole) -> Keys_Role {
         switch role {
+        case .none: .none
+        case .service: .service
         case .owner: .owner
         case .driver: .driver
+        case .fleetManager: .fm
+        case .vehicleMonitor: .vehicleMonitor
+        case .chargingManager: .chargingManager
+        case .guest: .guest
+        case .unrecognized(let i): Keys_Role(rawValue: i) ?? .none
         }
     }
 
-    private static func mapFormFactor(_ formFactor: Command.KeyFormFactor) -> VCSEC_KeyFormFactor {
+    private static func mapFormFactor(_ formFactor: KeyFormFactor) -> VCSEC_KeyFormFactor {
         switch formFactor {
         case .unknown: .unknown
         case .nfcCard: .nfcCard
         case .iosDevice: .iosDevice
         case .androidDevice: .androidDevice
         case .cloudKey: .cloudKey
+        case .unrecognized(let i): VCSEC_KeyFormFactor(rawValue: i) ?? .unknown
         }
     }
 

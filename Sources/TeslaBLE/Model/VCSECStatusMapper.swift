@@ -84,4 +84,55 @@ enum VCSECStatusMapper {
         case .UNRECOGNIZED(let i): .unrecognized(i)
         }
     }
+
+    // MARK: - Whitelist mappers
+
+    static func map(_ pb: VCSEC_WhitelistInfo) -> KeyWhitelistInfo {
+        KeyWhitelistInfo(
+            numberOfEntries: pb.numberOfEntries,
+            entries: pb.whitelistEntries.map(mapKeyIdentifier(_:)),
+            slotMask: pb.slotMask,
+        )
+    }
+
+    static func map(_ pb: VCSEC_WhitelistEntryInfo) -> KeyWhitelistEntry {
+        KeyWhitelistEntry(
+            keyIdentifier: pb.hasKeyID ? mapKeyIdentifier(pb.keyID) : nil,
+            publicKey: pb.hasPublicKey ? pb.publicKey.publicKeyRaw : nil,
+            formFactor: pb.hasMetadataForKey ? mapFormFactor(pb.metadataForKey.keyFormFactor) : nil,
+            slot: pb.slot,
+            role: mapKeyRole(pb.keyRole),
+        )
+    }
+
+    private static func mapKeyIdentifier(
+        _ pb: VCSEC_KeyIdentifier,
+    ) -> KeyWhitelistInfo.KeyIdentifier {
+        KeyWhitelistInfo.KeyIdentifier(publicKeySha1: pb.publicKeySha1)
+    }
+
+    static func mapFormFactor(_ pb: VCSEC_KeyFormFactor) -> KeyFormFactor {
+        switch pb {
+        case .unknown: .unknown
+        case .nfcCard: .nfcCard
+        case .iosDevice: .iosDevice
+        case .androidDevice: .androidDevice
+        case .cloudKey: .cloudKey
+        case .UNRECOGNIZED(let i): .unrecognized(i)
+        }
+    }
+
+    static func mapKeyRole(_ pb: Keys_Role) -> KeyRole {
+        switch pb {
+        case .none: .none
+        case .service: .service
+        case .owner: .owner
+        case .driver: .driver
+        case .fm: .fleetManager
+        case .vehicleMonitor: .vehicleMonitor
+        case .chargingManager: .chargingManager
+        case .guest: .guest
+        case .UNRECOGNIZED(let i): .unrecognized(i)
+        }
+    }
 }

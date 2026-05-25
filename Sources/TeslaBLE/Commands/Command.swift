@@ -128,33 +128,6 @@ public enum Command: Sendable, Equatable {
         case addKey(publicKey: Data, role: KeyRole, formFactor: KeyFormFactor)
     }
 
-    /// Role assigned to a newly-added key.
-    ///
-    /// Only the two roles relevant to personal BLE pairing are exposed.
-    /// Fleet-API roles such as fleet manager or vehicle monitor are
-    /// intentionally omitted; this package targets personal BLE use.
-    public enum KeyRole: Sendable, Equatable {
-        /// Full control, including the ability to add and remove other keys.
-        case owner
-        /// Can drive the vehicle but cannot manage other keys.
-        case driver
-    }
-
-    /// Form-factor metadata attached to a key, shown by the vehicle in its
-    /// key-management UI.
-    public enum KeyFormFactor: Sendable, Equatable {
-        /// Form factor not reported.
-        case unknown
-        /// Tesla NFC key card.
-        case nfcCard
-        /// iOS device running the Tesla or a third-party app.
-        case iosDevice
-        /// Android device running the Tesla or a third-party app.
-        case androidDevice
-        /// Cloud-managed key.
-        case cloudKey
-    }
-
     // MARK: - Charge
 
     /// Charging commands. All cases dispatch on the Infotainment domain.
