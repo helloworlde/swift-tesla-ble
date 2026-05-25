@@ -40,20 +40,127 @@ enum VehicleSnapshotMapper {
     // MARK: - Sub-state mappers
 
     private static func mapCharge(_ pb: CarServer_ChargeState) -> ChargeState {
-        ChargeState(
-            batteryLevel: Int(pb.batteryLevel),
-            batteryRangeMiles: Double(pb.batteryRange),
-            estBatteryRangeMiles: Double(pb.estBatteryRange),
-            chargingStatus: mapChargingStatus(pb.chargingState),
-            chargerVoltage: Int(pb.chargerVoltage),
-            chargerCurrent: Int(pb.chargerActualCurrent),
-            chargerPower: Int(pb.chargerPower),
-            chargeLimitPercent: Int(pb.chargeLimitSoc),
-            minutesToFullCharge: Int(pb.minutesToFullCharge),
-            chargeRateMph: Double(pb.chargeRateMph),
-            chargePortOpen: pb.chargePortDoorOpen,
-            chargePortLatched: nil,
+        // `chargeRateMphFloat` is preferred over the legacy integer
+        // `chargeRateMph` when present.
+        let chargeRate: Double? = {
+            if pb.optionalChargeRateMphFloat != nil { return Double(pb.chargeRateMphFloat) }
+            if pb.optionalChargeRateMph != nil { return Double(pb.chargeRateMph) }
+            return nil
+        }()
+
+        let powershare = mapPowershare(pb)
+
+        return ChargeState(
+            batteryLevel: pb.optionalBatteryLevel != nil ? Int(pb.batteryLevel) : nil,
+            usableBatteryLevel: pb.optionalUsableBatteryLevel != nil ? Int(pb.usableBatteryLevel) : nil,
+            batteryRangeMiles: pb.optionalBatteryRange != nil ? Double(pb.batteryRange) : nil,
+            estBatteryRangeMiles: pb.optionalEstBatteryRange != nil ? Double(pb.estBatteryRange) : nil,
+            idealBatteryRangeMiles: pb.optionalIdealBatteryRange != nil ? Double(pb.idealBatteryRange) : nil,
+            chargingStatus: pb.hasChargingState ? mapChargingStatus(pb.chargingState) : nil,
+            chargerVoltage: pb.optionalChargerVoltage != nil ? Int(pb.chargerVoltage) : nil,
+            chargerCurrent: pb.optionalChargerActualCurrent != nil ? Int(pb.chargerActualCurrent) : nil,
+            chargerPilotCurrent: pb.optionalChargerPilotCurrent != nil ? Int(pb.chargerPilotCurrent) : nil,
+            chargeCurrentRequest: pb.optionalChargeCurrentRequest != nil ? Int(pb.chargeCurrentRequest) : nil,
+            chargeCurrentRequestMax: pb.optionalChargeCurrentRequestMax != nil ? Int(pb.chargeCurrentRequestMax) : nil,
+            chargingAmps: pb.optionalChargingAmps != nil ? Int(pb.chargingAmps) : nil,
+            chargerPhases: pb.optionalChargerPhases != nil ? Int(pb.chargerPhases) : nil,
+            chargerPower: pb.optionalChargerPower != nil ? Int(pb.chargerPower) : nil,
+            chargeRateMph: chargeRate,
+            minutesToFullCharge: pb.optionalMinutesToFullCharge != nil ? Int(pb.minutesToFullCharge) : nil,
+            minutesToChargeLimit: pb.optionalMinutesToChargeLimit != nil ? Int(pb.minutesToChargeLimit) : nil,
+            chargeEnergyAddedKWh: pb.optionalChargeEnergyAdded != nil ? Double(pb.chargeEnergyAdded) : nil,
+            chargeMilesAddedRated: pb.optionalChargeMilesAddedRated != nil ? Double(pb.chargeMilesAddedRated) : nil,
+            chargeMilesAddedIdeal: pb.optionalChargeMilesAddedIdeal != nil ? Double(pb.chargeMilesAddedIdeal) : nil,
+            tripCharging: pb.optionalTripCharging != nil ? pb.tripCharging : nil,
+            superchargerSessionTripPlanner: pb.optionalSuperchargerSessionTripPlanner != nil
+                ? pb.superchargerSessionTripPlanner : nil,
+            chargeLimitPercent: pb.optionalChargeLimitSoc != nil ? Int(pb.chargeLimitSoc) : nil,
+            chargeLimitStandardPercent: pb.optionalChargeLimitSocStd != nil ? Int(pb.chargeLimitSocStd) : nil,
+            chargeLimitMinPercent: pb.optionalChargeLimitSocMin != nil ? Int(pb.chargeLimitSocMin) : nil,
+            chargeLimitMaxPercent: pb.optionalChargeLimitSocMax != nil ? Int(pb.chargeLimitSocMax) : nil,
+            oneTimeChargeLimitPercent: pb.optionalOneTimeSocLimit != nil ? Int(pb.oneTimeSocLimit) : nil,
+            chargeLimitReason: pb.optionalChargeLimitReason != nil
+                ? mapChargeLimitReason(pb.chargeLimitReason) : nil,
+            chargePortOpen: pb.optionalChargePortDoorOpen != nil ? pb.chargePortDoorOpen : nil,
+            chargePortLatch: pb.hasChargePortLatch ? mapChargePortLatch(pb.chargePortLatch) : nil,
+            chargePortColdWeatherMode: pb.optionalChargePortColdWeatherMode != nil
+                ? pb.chargePortColdWeatherMode : nil,
+            chargePortColor: pb.optionalChargePortColor != nil ? mapChargePortColor(pb.chargePortColor) : nil,
+            chargeCableUnlatched: pb.optionalChargeCableUnlatched != nil ? pb.chargeCableUnlatched : nil,
+            connectedCableType: pb.hasConnChargeCable ? mapCableType(pb.connChargeCable) : nil,
+            fastChargerType: pb.hasFastChargerType ? mapFastChargerType(pb.fastChargerType) : nil,
+            fastChargerBrand: pb.hasFastChargerBrand ? mapFastChargerBrand(pb.fastChargerBrand) : nil,
+            fastChargerPresent: pb.optionalFastChargerPresent != nil ? pb.fastChargerPresent : nil,
+            scheduledChargingMode: pb.optionalScheduledChargingMode != nil
+                ? mapScheduledChargingMode(pb.scheduledChargingMode) : nil,
+            scheduledChargingPending: pb.optionalScheduledChargingPending != nil
+                ? pb.scheduledChargingPending : nil,
+            scheduledChargingStartTimeSecondsSinceEpoch: pb.optionalScheduledChargingStartTime != nil
+                ? pb.scheduledChargingStartTime : nil,
+            scheduledChargingStartTimeMinutes: pb.optionalScheduledChargingStartTimeMinutes != nil
+                ? pb.scheduledChargingStartTimeMinutes : nil,
+            scheduledChargingStartTimeAppMinutes: pb.optionalScheduledChargingStartTimeApp != nil
+                ? Int(pb.scheduledChargingStartTimeApp) : nil,
+            scheduledDepartureTimeMinutes: pb.optionalScheduledDepartureTimeMinutes != nil
+                ? pb.scheduledDepartureTimeMinutes : nil,
+            offPeakHoursEndTimeMinutes: pb.optionalOffPeakHoursEndTime != nil
+                ? pb.offPeakHoursEndTime : nil,
+            preconditioningEnabled: pb.optionalPreconditioningEnabled != nil
+                ? pb.preconditioningEnabled : nil,
+            userChargeEnableRequest: pb.optionalUserChargeEnableRequest != nil
+                ? pb.userChargeEnableRequest : nil,
+            chargeEnableRequest: pb.optionalChargeEnableRequest != nil
+                ? pb.chargeEnableRequest : nil,
+            managedChargingActive: pb.optionalManagedChargingActive != nil
+                ? pb.managedChargingActive : nil,
+            managedChargingUserCanceled: pb.optionalManagedChargingUserCanceled != nil
+                ? pb.managedChargingUserCanceled : nil,
+            managedChargingStartTimeSecondsSinceEpoch: pb.optionalManagedChargingStartTime != nil
+                ? pb.managedChargingStartTime : nil,
+            outletState: pb.optionalOutletState != nil ? mapOutletState(pb.outletState) : nil,
+            powerFeedState: pb.optionalPowerFeedState != nil ? mapPowerFeedState(pb.powerFeedState) : nil,
+            outletSocLimitPercent: pb.optionOutletSocLimit != nil ? Int(pb.outletSocLimit) : nil,
+            powerFeedSocLimitPercent: pb.optionPowerFeedSocLimit != nil ? Int(pb.powerFeedSocLimit) : nil,
+            outletTimeRemainingSeconds: pb.optionOutletTimeRemaining != nil ? pb.outletTimeRemaining : nil,
+            powerFeedTimeRemainingSeconds: pb.optionPowerFeedTimeRemaining != nil
+                ? pb.powerFeedTimeRemaining : nil,
+            outletMaxTimerMinutes: pb.optionalOutletMaxTimerMinutes != nil
+                ? Int(pb.outletMaxTimerMinutes) : nil,
+            powershare: powershare,
+            homeLocation: pb.optionalHomeLocation != nil ? mapLatLong(pb.homeLocation) : nil,
+            workLocation: pb.optionalWorkLocation != nil ? mapLatLong(pb.workLocation) : nil,
         )
+    }
+
+    private static func mapPowershare(_ pb: CarServer_ChargeState) -> PowershareState? {
+        let anyField = pb.optionalPowershareFeatureAllowed != nil
+            || pb.optionalPowershareFeatureEnabled != nil
+            || pb.optionalPowershareRequest != nil
+            || pb.optionalPowershareType != nil
+            || pb.optionalPowershareStatus != nil
+            || pb.optionalPowershareStopReason != nil
+            || pb.optionalPowershareInstantaneousLoadKw != nil
+            || pb.optionalPowershareVehicleEnergyLeftHr != nil
+            || pb.optionalPowershareSocLimit != nil
+        guard anyField else { return nil }
+        return PowershareState(
+            featureAllowed: pb.optionalPowershareFeatureAllowed != nil ? pb.powershareFeatureAllowed : nil,
+            featureEnabled: pb.optionalPowershareFeatureEnabled != nil ? pb.powershareFeatureEnabled : nil,
+            requestActive: pb.optionalPowershareRequest != nil ? pb.powershareRequest : nil,
+            type: pb.optionalPowershareType != nil ? mapPowershareType(pb.powershareType) : nil,
+            status: pb.optionalPowershareStatus != nil ? mapPowershareStatus(pb.powershareStatus) : nil,
+            stopReason: pb.optionalPowershareStopReason != nil
+                ? mapPowershareStopReason(pb.powershareStopReason) : nil,
+            instantaneousLoadKW: pb.optionalPowershareInstantaneousLoadKw != nil
+                ? Double(pb.powershareInstantaneousLoadKw) : nil,
+            vehicleEnergyLeftHours: pb.optionalPowershareVehicleEnergyLeftHr != nil
+                ? Int(pb.powershareVehicleEnergyLeftHr) : nil,
+            socLimitPercent: pb.optionalPowershareSocLimit != nil ? Int(pb.powershareSocLimit) : nil,
+        )
+    }
+
+    private static func mapLatLong(_ pb: CarServer_LatLong) -> Coordinate {
+        Coordinate(latitude: Double(pb.latitude), longitude: Double(pb.longitude))
     }
 
     private static func mapClimate(_ pb: CarServer_ClimateState) -> ClimateState {
@@ -283,5 +390,163 @@ enum VehicleSnapshotMapper {
 
     private static func mapSeatHeater(_ rawLevel: Int32) -> ClimateState.SeatHeaterLevel? {
         ClimateState.SeatHeaterLevel(rawValue: Int(rawLevel))
+    }
+
+    private static func mapChargeLimitReason(
+        _ pb: CarServer_ChargeState.ChargeLimitReason,
+    ) -> ChargeState.ChargeLimitReason? {
+        switch pb {
+        case .unknown: return .unknown
+        case .none: return ChargeState.ChargeLimitReason.none
+        case .evse: return .evse
+        case .battTempLow: return .batteryTempLow
+        case .highSoc: return .highSoc
+        case .cabin: return .cabin
+        case .UNRECOGNIZED: return nil
+        }
+    }
+
+    private static func mapScheduledChargingMode(
+        _ pb: CarServer_ChargeState.ScheduledChargingMode,
+    ) -> ChargeState.ScheduledChargingMode? {
+        switch pb {
+        case .off: return .off
+        case .startAt: return .startAt
+        case .departBy: return .departBy
+        case .UNRECOGNIZED: return nil
+        }
+    }
+
+    private static func mapChargePortLatch(
+        _ pb: CarServer_ChargePortLatchState,
+    ) -> ChargeState.ChargePortLatchState? {
+        guard let type = pb.type else { return nil }
+        switch type {
+        case .sna: return .sna
+        case .disengaged: return .disengaged
+        case .engaged: return .engaged
+        case .blocking: return .blocking
+        }
+    }
+
+    private static func mapChargePortColor(
+        _ pb: CarServer_ChargeState.ChargePortColor_E,
+    ) -> ChargeState.ChargePortColor? {
+        switch pb {
+        case .chargePortColorOff: return .off
+        case .chargePortColorRed: return .red
+        case .chargePortColorGreen: return .green
+        case .chargePortColorBlue: return .blue
+        case .chargePortColorWhite: return .white
+        case .chargePortColorFlashingGreen: return .flashingGreen
+        case .chargePortColorFlashingAmber: return .flashingAmber
+        case .chargePortColorAmber: return .amber
+        case .chargePortColorRave: return .rave
+        case .chargePortColorDebug: return .debug
+        case .chargePortColorFlashingBlue: return .flashingBlue
+        case .UNRECOGNIZED: return nil
+        }
+    }
+
+    private static func mapCableType(
+        _ pb: CarServer_ChargeState.CableType,
+    ) -> ChargeState.CableType? {
+        guard let type = pb.type else { return nil }
+        switch type {
+        case .sna: return .sna
+        case .iec: return .iec
+        case .sae: return .sae
+        case .gbAc: return .gbAc
+        case .gbDc: return .gbDc
+        }
+    }
+
+    private static func mapFastChargerType(
+        _ pb: CarServer_ChargeState.ChargerType,
+    ) -> ChargeState.FastChargerType? {
+        guard let type = pb.type else { return nil }
+        switch type {
+        case .sna: return .sna
+        case .supercharger: return .supercharger
+        case .chademo: return .chademo
+        case .gb: return .gb
+        case .acsingleWireCan: return .acSingleWireCan
+        case .combo: return .combo
+        case .mcsingleWireCan: return .mcSingleWireCan
+        case .other: return .other
+        case .tesla: return .tesla
+        }
+    }
+
+    private static func mapFastChargerBrand(
+        _ pb: CarServer_ChargeState.ChargerBrand,
+    ) -> ChargeState.FastChargerBrand? {
+        guard let type = pb.type else { return nil }
+        switch type {
+        case .tesla: return .tesla
+        case .sna: return .sna
+        }
+    }
+
+    private static func mapOutletState(
+        _ pb: CarServer_ChargeState.OutletState,
+    ) -> ChargeState.OutletState? {
+        switch pb {
+        case .off: return .off
+        case .cabinAndBed: return .cabinAndBed
+        case .cabin: return .cabin
+        case .UNRECOGNIZED: return nil
+        }
+    }
+
+    private static func mapPowerFeedState(
+        _ pb: CarServer_ChargeState.PowerFeedState,
+    ) -> ChargeState.OutletState? {
+        switch pb {
+        case .off: return .off
+        case .cabinAndBed: return .cabinAndBed
+        case .cabin: return .cabin
+        case .UNRECOGNIZED: return nil
+        }
+    }
+
+    private static func mapPowershareType(
+        _ pb: CarServer_ChargeState.PowershareType,
+    ) -> PowershareState.PowershareType? {
+        switch pb {
+        case .none: return PowershareState.PowershareType.none
+        case .load: return .load
+        case .home: return .home
+        case .UNRECOGNIZED: return nil
+        }
+    }
+
+    private static func mapPowershareStatus(
+        _ pb: CarServer_ChargeState.PowershareStatus,
+    ) -> PowershareState.PowershareStatus? {
+        switch pb {
+        case .inactive: return .inactive
+        case .init_: return .initializing
+        case .active: return .active
+        case .stopped: return .stopped
+        case .handshaking: return .handshaking
+        case .activeReconnectingSoon: return .activeReconnectingSoon
+        case .UNRECOGNIZED: return nil
+        }
+    }
+
+    private static func mapPowershareStopReason(
+        _ pb: CarServer_ChargeState.PowershareStopReason,
+    ) -> PowershareState.PowershareStopReason? {
+        switch pb {
+        case .none: return PowershareState.PowershareStopReason.none
+        case .soctooLow: return .socTooLow
+        case .retry: return .retry
+        case .fault: return .fault
+        case .user: return .user
+        case .reconnecting: return .reconnecting
+        case .authentication: return .authentication
+        case .UNRECOGNIZED: return nil
+        }
     }
 }

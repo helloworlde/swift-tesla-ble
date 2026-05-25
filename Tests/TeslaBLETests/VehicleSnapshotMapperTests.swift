@@ -48,6 +48,195 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         XCTAssertEqual(snapshot.charge?.chargePortOpen, true)
     }
 
+    func testChargeStateUnsetFieldsAreNil() {
+        var data = CarServer_VehicleData()
+        // Submessage present so `hasChargeState` is true, but no fields set.
+        data.chargeState = CarServer_ChargeState()
+        let charge = VehicleSnapshotMapper.map(data).charge
+        XCTAssertNotNil(charge)
+        XCTAssertNil(charge?.batteryLevel)
+        XCTAssertNil(charge?.batteryRangeMiles)
+        XCTAssertNil(charge?.chargerVoltage)
+        XCTAssertNil(charge?.chargingAmps)
+        XCTAssertNil(charge?.chargeLimitPercent)
+        XCTAssertNil(charge?.chargePortOpen)
+        XCTAssertNil(charge?.chargePortLatch)
+        XCTAssertNil(charge?.connectedCableType)
+        XCTAssertNil(charge?.fastChargerType)
+        XCTAssertNil(charge?.fastChargerBrand)
+        XCTAssertNil(charge?.scheduledChargingMode)
+        XCTAssertNil(charge?.outletState)
+        XCTAssertNil(charge?.powershare)
+        XCTAssertNil(charge?.homeLocation)
+        XCTAssertNil(charge?.workLocation)
+    }
+
+    func testChargeStateDepthMapping() {
+        var data = CarServer_VehicleData()
+        var charge = CarServer_ChargeState()
+        charge.usableBatteryLevel = 73
+        charge.idealBatteryRange = 260.0
+        charge.chargerPilotCurrent = 40
+        charge.chargeCurrentRequest = 32
+        charge.chargeCurrentRequestMax = 48
+        charge.chargingAmps = 32
+        charge.chargerPhases = 3
+        charge.minutesToChargeLimit = 80
+        charge.chargeEnergyAdded = 12.4
+        charge.chargeMilesAddedRated = 30.0
+        charge.chargeMilesAddedIdeal = 32.5
+        charge.chargeRateMphFloat = 31.5
+        charge.tripCharging = true
+        charge.superchargerSessionTripPlanner = true
+        charge.chargeLimitSocStd = 80
+        charge.chargeLimitSocMin = 50
+        charge.chargeLimitSocMax = 100
+        charge.oneTimeSocLimit = 95
+        charge.chargePortColdWeatherMode = false
+        charge.chargeCableUnlatched = false
+        charge.fastChargerPresent = true
+        charge.scheduledChargingPending = true
+        charge.scheduledChargingStartTime = 1_700_000_000
+        charge.scheduledChargingStartTimeMinutes = 1320
+        charge.scheduledChargingStartTimeApp = 1320
+        charge.scheduledDepartureTimeMinutes = 480
+        charge.offPeakHoursEndTime = 360
+        charge.preconditioningEnabled = true
+        charge.userChargeEnableRequest = true
+        charge.chargeEnableRequest = true
+        charge.managedChargingActive = true
+        charge.managedChargingUserCanceled = false
+        charge.managedChargingStartTime = 1_700_000_500
+        charge.outletSocLimit = 30
+        charge.powerFeedSocLimit = 25
+        charge.outletTimeRemaining = 7200
+        charge.powerFeedTimeRemaining = 14_400
+        charge.outletMaxTimerMinutes = 720
+
+        // Powershare cluster.
+        charge.powershareFeatureAllowed = true
+        charge.powershareFeatureEnabled = true
+        charge.powershareRequest = true
+        charge.powershareInstantaneousLoadKw = 4.2
+        charge.powershareVehicleEnergyLeftHr = 18
+        charge.powershareSocLimit = 20
+
+        // Saved locations.
+        var home = CarServer_LatLong()
+        home.latitude = 37.4
+        home.longitude = -122.1
+        charge.homeLocation = home
+        var work = CarServer_LatLong()
+        work.latitude = 37.5
+        work.longitude = -122.0
+        charge.workLocation = work
+
+        // ChargeLimitReason enum.
+        charge.chargeLimitReason = .battTempLow
+
+        // ScheduledChargingMode enum.
+        charge.scheduledChargingMode = .departBy
+
+        // ChargePortLatch oneof.
+        var latch = CarServer_ChargePortLatchState()
+        latch.type = .engaged(CarServer_Void())
+        charge.chargePortLatch = latch
+
+        // ChargePortColor enum.
+        charge.chargePortColor = .chargePortColorGreen
+
+        // CableType oneof.
+        var cable = CarServer_ChargeState.CableType()
+        cable.type = .iec(CarServer_Void())
+        charge.connChargeCable = cable
+
+        // FastChargerType / Brand oneof.
+        var ftype = CarServer_ChargeState.ChargerType()
+        ftype.type = .supercharger(CarServer_Void())
+        charge.fastChargerType = ftype
+        var brand = CarServer_ChargeState.ChargerBrand()
+        brand.type = .tesla(CarServer_Void())
+        charge.fastChargerBrand = brand
+
+        // Outlet / power-feed enums.
+        charge.outletState = .cabin
+        charge.powerFeedState = .cabinAndBed
+
+        // Powershare enums.
+        charge.powershareType = .home
+        charge.powershareStatus = .active
+        charge.powershareStopReason = .user
+
+        data.chargeState = charge
+
+        let cs = VehicleSnapshotMapper.map(data).charge
+        XCTAssertEqual(cs?.usableBatteryLevel, 73)
+        XCTAssertEqual(cs?.idealBatteryRangeMiles ?? 0, Double(Float(260.0)), accuracy: 0.01)
+        XCTAssertEqual(cs?.chargerPilotCurrent, 40)
+        XCTAssertEqual(cs?.chargeCurrentRequest, 32)
+        XCTAssertEqual(cs?.chargeCurrentRequestMax, 48)
+        XCTAssertEqual(cs?.chargingAmps, 32)
+        XCTAssertEqual(cs?.chargerPhases, 3)
+        XCTAssertEqual(cs?.minutesToChargeLimit, 80)
+        XCTAssertEqual(cs?.chargeEnergyAddedKWh ?? 0, Double(Float(12.4)), accuracy: 0.01)
+        XCTAssertEqual(cs?.chargeMilesAddedRated ?? 0, Double(Float(30.0)), accuracy: 0.01)
+        XCTAssertEqual(cs?.chargeMilesAddedIdeal ?? 0, Double(Float(32.5)), accuracy: 0.01)
+        // chargeRateMphFloat takes precedence over the integer field.
+        XCTAssertEqual(cs?.chargeRateMph ?? 0, Double(Float(31.5)), accuracy: 0.01)
+        XCTAssertEqual(cs?.tripCharging, true)
+        XCTAssertEqual(cs?.superchargerSessionTripPlanner, true)
+        XCTAssertEqual(cs?.chargeLimitStandardPercent, 80)
+        XCTAssertEqual(cs?.chargeLimitMinPercent, 50)
+        XCTAssertEqual(cs?.chargeLimitMaxPercent, 100)
+        XCTAssertEqual(cs?.oneTimeChargeLimitPercent, 95)
+        XCTAssertEqual(cs?.chargeLimitReason, .batteryTempLow)
+        XCTAssertEqual(cs?.scheduledChargingMode, .departBy)
+        XCTAssertEqual(cs?.scheduledChargingPending, true)
+        XCTAssertEqual(cs?.scheduledChargingStartTimeSecondsSinceEpoch, 1_700_000_000)
+        XCTAssertEqual(cs?.scheduledChargingStartTimeMinutes, 1320)
+        XCTAssertEqual(cs?.scheduledChargingStartTimeAppMinutes, 1320)
+        XCTAssertEqual(cs?.scheduledDepartureTimeMinutes, 480)
+        XCTAssertEqual(cs?.offPeakHoursEndTimeMinutes, 360)
+        XCTAssertEqual(cs?.preconditioningEnabled, true)
+        XCTAssertEqual(cs?.userChargeEnableRequest, true)
+        XCTAssertEqual(cs?.chargeEnableRequest, true)
+        XCTAssertEqual(cs?.managedChargingActive, true)
+        XCTAssertEqual(cs?.managedChargingUserCanceled, false)
+        XCTAssertEqual(cs?.managedChargingStartTimeSecondsSinceEpoch, 1_700_000_500)
+        XCTAssertEqual(cs?.outletState, .cabin)
+        XCTAssertEqual(cs?.powerFeedState, .cabinAndBed)
+        XCTAssertEqual(cs?.outletSocLimitPercent, 30)
+        XCTAssertEqual(cs?.powerFeedSocLimitPercent, 25)
+        XCTAssertEqual(cs?.outletTimeRemainingSeconds, 7200)
+        XCTAssertEqual(cs?.powerFeedTimeRemainingSeconds, 14_400)
+        XCTAssertEqual(cs?.outletMaxTimerMinutes, 720)
+        XCTAssertEqual(cs?.chargePortLatch, .engaged)
+        XCTAssertEqual(cs?.chargePortColor, .green)
+        XCTAssertEqual(cs?.chargePortColdWeatherMode, false)
+        XCTAssertEqual(cs?.chargeCableUnlatched, false)
+        XCTAssertEqual(cs?.connectedCableType, .iec)
+        XCTAssertEqual(cs?.fastChargerType, .supercharger)
+        XCTAssertEqual(cs?.fastChargerBrand, .tesla)
+        XCTAssertEqual(cs?.fastChargerPresent, true)
+
+        let ps = cs?.powershare
+        XCTAssertNotNil(ps)
+        XCTAssertEqual(ps?.featureAllowed, true)
+        XCTAssertEqual(ps?.featureEnabled, true)
+        XCTAssertEqual(ps?.requestActive, true)
+        XCTAssertEqual(ps?.type, .home)
+        XCTAssertEqual(ps?.status, .active)
+        XCTAssertEqual(ps?.stopReason, .user)
+        XCTAssertEqual(ps?.instantaneousLoadKW ?? 0, Double(Float(4.2)), accuracy: 0.001)
+        XCTAssertEqual(ps?.vehicleEnergyLeftHours, 18)
+        XCTAssertEqual(ps?.socLimitPercent, 20)
+
+        XCTAssertEqual(cs?.homeLocation?.latitude ?? 0, Double(Float(37.4)), accuracy: 0.01)
+        XCTAssertEqual(cs?.homeLocation?.longitude ?? 0, Double(Float(-122.1)), accuracy: 0.01)
+        XCTAssertEqual(cs?.workLocation?.latitude ?? 0, Double(Float(37.5)), accuracy: 0.01)
+        XCTAssertEqual(cs?.workLocation?.longitude ?? 0, Double(Float(-122.0)), accuracy: 0.01)
+    }
+
     func testDriveStateShiftMapping() {
         var data = CarServer_VehicleData()
         var drive = CarServer_DriveState()
