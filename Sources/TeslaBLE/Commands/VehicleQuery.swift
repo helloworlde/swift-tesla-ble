@@ -27,6 +27,27 @@ public enum VehicleQuery: Sendable, Equatable {
     /// - Parameter slot: Whitelist slot index as reported by ``keySummary``.
     case keyInfo(slot: UInt32)
 
+    /// Returns detailed information for the whitelist entry whose public
+    /// key matches the supplied SEC1 encoding.
+    ///
+    /// Yields ``VehicleQueryResult/keyInfo(_:)``.
+    ///
+    /// - Parameter publicKey: 65-byte uncompressed SEC1 encoding
+    ///   (`0x04 || X || Y`) of the P-256 public key.
+    case keyInfoByPublicKey(publicKey: Data)
+
+    /// Returns detailed information for the whitelist entry whose key
+    /// identifier matches the supplied SHA-1 prefix.
+    ///
+    /// The vehicle identifies enrolled keys by SHA-1 of their public key
+    /// (truncated to 4 bytes on the wire); use this when you have the
+    /// identifier from a prior `keySummary` rather than a full public
+    /// key. Yields ``VehicleQueryResult/keyInfo(_:)``.
+    ///
+    /// - Parameter publicKeySha1: SHA-1 hash of the public key (typically
+    ///   4 bytes, matching the truncation used in the whitelist summary).
+    case keyInfoByKeyID(publicKeySha1: Data)
+
     /// Returns VCSEC body-controller state: closures, lock status, user
     /// presence, and whether Infotainment is asleep.
     ///
@@ -86,6 +107,24 @@ enum VehicleQueryEncoder {
             unsigned.subMessage = .informationRequest(req)
             return try (.vehicleSecurity, serialize(unsigned))
 
+        case let .keyInfoByPublicKey(publicKey):
+            var req = VCSEC_InformationRequest()
+            req.informationRequestType = .getWhitelistEntryInfo
+            req.key = .publicKey(publicKey)
+            var unsigned = VCSEC_UnsignedMessage()
+            unsigned.subMessage = .informationRequest(req)
+            return try (.vehicleSecurity, serialize(unsigned))
+
+        case let .keyInfoByKeyID(publicKeySha1):
+            var keyID = VCSEC_KeyIdentifier()
+            keyID.publicKeySha1 = publicKeySha1
+            var req = VCSEC_InformationRequest()
+            req.informationRequestType = .getWhitelistEntryInfo
+            req.key = .keyID(keyID)
+            var unsigned = VCSEC_UnsignedMessage()
+            unsigned.subMessage = .informationRequest(req)
+            return try (.vehicleSecurity, serialize(unsigned))
+
         case .bodyControllerState:
             var req = VCSEC_InformationRequest()
             req.informationRequestType = .getStatus
@@ -132,7 +171,7 @@ enum VehicleQueryDecoder {
             }
             return .keySummary(VCSECStatusMapper.map(info))
 
-        case .keyInfo:
+        case .keyInfo, .keyInfoByPublicKey, .keyInfoByKeyID:
             let message = try parseVCSEC(bytes)
             guard case let .whitelistEntryInfo(info)? = message.subMessage else {
                 throw Error.unexpectedMessageType("expected whitelistEntryInfo, got \(describe(message.subMessage))")

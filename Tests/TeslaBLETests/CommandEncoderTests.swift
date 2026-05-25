@@ -1012,6 +1012,35 @@ final class CommandEncoderTests: XCTestCase {
         }
     }
 
+    func testQueryKeyInfoByPublicKeyEncoding() throws {
+        var publicKey = Data([0x04])
+        publicKey.append(Data(repeating: 0xA1, count: 32))
+        publicKey.append(Data(repeating: 0xB2, count: 32))
+
+        let (domain, body) = try VehicleQueryEncoder.encode(.keyInfoByPublicKey(publicKey: publicKey))
+        XCTAssertEqual(domain, .vehicleSecurity)
+        let unsigned = try VCSEC_UnsignedMessage(serializedBytes: body)
+        guard case let .informationRequest(req)? = unsigned.subMessage else { XCTFail(); return }
+        XCTAssertEqual(req.informationRequestType, .getWhitelistEntryInfo)
+        guard case let .publicKey(pk)? = req.key else {
+            XCTFail("expected publicKey arm"); return
+        }
+        XCTAssertEqual(pk, publicKey)
+    }
+
+    func testQueryKeyInfoByKeyIDEncoding() throws {
+        let sha1 = Data([0xDE, 0xAD, 0xBE, 0xEF])
+        let (domain, body) = try VehicleQueryEncoder.encode(.keyInfoByKeyID(publicKeySha1: sha1))
+        XCTAssertEqual(domain, .vehicleSecurity)
+        let unsigned = try VCSEC_UnsignedMessage(serializedBytes: body)
+        guard case let .informationRequest(req)? = unsigned.subMessage else { XCTFail(); return }
+        XCTAssertEqual(req.informationRequestType, .getWhitelistEntryInfo)
+        guard case let .keyID(kid)? = req.key else {
+            XCTFail("expected keyID arm"); return
+        }
+        XCTAssertEqual(kid.publicKeySha1, sha1)
+    }
+
     func testQueryBodyControllerStateEncoding() throws {
         let (domain, body) = try VehicleQueryEncoder.encode(.bodyControllerState)
         XCTAssertEqual(domain, .vehicleSecurity)
