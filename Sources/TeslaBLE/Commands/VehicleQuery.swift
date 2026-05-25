@@ -67,6 +67,16 @@ public enum VehicleQuery: Sendable, Equatable {
     ///     pick a default.
     ///   - count: Maximum number of results, or `0` for the vehicle default.
     case nearbyCharging(includeMetadata: Bool = false, radiusMiles: Int32 = 0, count: Int32 = 0)
+
+    /// Application-layer ping over the Infotainment domain. Useful as a
+    /// liveness probe and as a way to measure round-trip latency / clock
+    /// skew (the vehicle echoes its own clock back).
+    ///
+    /// Yields ``VehicleQueryResult/ping(_:)``.
+    ///
+    /// - Parameter id: Echoed back by the vehicle so multiple in-flight
+    ///   pings can be correlated.
+    case ping(id: Int32)
 }
 
 /// Typed result of a ``VehicleQuery``. Each case wraps the raw generated
@@ -80,6 +90,8 @@ public enum VehicleQueryResult: Sendable {
     case bodyControllerState(BodyControllerState)
     /// Result of ``VehicleQuery/nearbyCharging(includeMetadata:radiusMiles:count:)``.
     case nearbyCharging(NearbyChargingSites)
+    /// Result of ``VehicleQuery/ping(id:)``.
+    case ping(PingResult)
 }
 
 /// Encodes a `VehicleQuery` into the `(domain, body)` pair used by
@@ -142,6 +154,15 @@ enum VehicleQueryEncoder {
             var action = CarServer_Action()
             action.vehicleAction = vehicleAction
             return try (.infotainment, serialize(action))
+
+        case let .ping(id):
+            var sub = CarServer_Ping()
+            sub.pingID = id
+            var vehicleAction = CarServer_VehicleAction()
+            vehicleAction.vehicleActionMsg = .ping(sub)
+            var action = CarServer_Action()
+            action.vehicleAction = vehicleAction
+            return try (.infotainment, serialize(action))
         }
     }
 
@@ -196,6 +217,22 @@ enum VehicleQueryDecoder {
                 throw Error.unexpectedMessageType("expected getNearbyChargingSites in response")
             }
             return .nearbyCharging(NearbyChargingMapper.map(sites))
+
+        case .ping:
+            let response: CarServer_Response
+            do {
+                response = try CarServer_Response(serializedBytes: bytes)
+            } catch {
+                throw Error.decodingFailed("CarServer_Response: \(error)")
+            }
+            guard case let .ping(pong)? = response.responseMsg else {
+                throw Error.unexpectedMessageType("expected ping in response")
+            }
+            return .ping(PingResult(
+                pingID: pong.pingID,
+                localTimestampSecondsSinceEpoch: pong.hasLocalTimestamp ? pong.localTimestamp.seconds : nil,
+                lastRemoteTimestampSecondsSinceEpoch: pong.hasLastRemoteTimestamp ? pong.lastRemoteTimestamp.seconds : nil,
+            ))
         }
     }
 

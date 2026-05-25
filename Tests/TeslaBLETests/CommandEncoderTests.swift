@@ -1,4 +1,5 @@
 import Foundation
+import SwiftProtobuf
 @testable import TeslaBLE
 import XCTest
 
@@ -1047,6 +1048,36 @@ final class CommandEncoderTests: XCTestCase {
         let unsigned = try VCSEC_UnsignedMessage(serializedBytes: body)
         guard case let .informationRequest(req)? = unsigned.subMessage else { XCTFail(); return }
         XCTAssertEqual(req.informationRequestType, .getStatus)
+    }
+
+    func testQueryPingEncoding() throws {
+        let (domain, body) = try VehicleQueryEncoder.encode(.ping(id: 42))
+        XCTAssertEqual(domain, .infotainment)
+        let action = try CarServer_Action(serializedBytes: body)
+        guard case let .ping(sub)? = action.vehicleAction.vehicleActionMsg else { XCTFail(); return }
+        XCTAssertEqual(sub.pingID, 42)
+    }
+
+    func testQueryPingDecoding() throws {
+        var pong = CarServer_Ping()
+        pong.pingID = 99
+        var localTs = SwiftProtobuf.Google_Protobuf_Timestamp()
+        localTs.seconds = 1_730_001_000
+        pong.localTimestamp = localTs
+        var lastRemote = SwiftProtobuf.Google_Protobuf_Timestamp()
+        lastRemote.seconds = 1_730_000_500
+        pong.lastRemoteTimestamp = lastRemote
+        var response = CarServer_Response()
+        response.responseMsg = .ping(pong)
+        let bytes = try response.serializedData()
+
+        let result = try VehicleQueryDecoder.decode(.ping(id: 99), from: bytes)
+        guard case let .ping(ping) = result else {
+            XCTFail("expected .ping result"); return
+        }
+        XCTAssertEqual(ping.pingID, 99)
+        XCTAssertEqual(ping.localTimestampSecondsSinceEpoch, 1_730_001_000)
+        XCTAssertEqual(ping.lastRemoteTimestampSecondsSinceEpoch, 1_730_000_500)
     }
 
     func testQueryNearbyChargingEncoding() throws {
