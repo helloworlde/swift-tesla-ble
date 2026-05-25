@@ -17,6 +17,7 @@ enum VehicleSnapshotMapper {
             charge: data.hasChargeState ? mapCharge(data.chargeState) : nil,
             climate: data.hasClimateState ? mapClimate(data.climateState) : nil,
             drive: data.hasDriveState ? mapDrive(data.driveState) : nil,
+            location: data.hasLocationState ? mapLocation(data.locationState) : nil,
             closures: data.hasClosuresState ? mapClosures(data.closuresState) : nil,
             tirePressure: data.hasTirePressureState ? mapTirePressure(data.tirePressureState) : nil,
             media: data.hasMediaState ? mapMedia(data.mediaState) : nil,
@@ -96,6 +97,27 @@ enum VehicleSnapshotMapper {
             activeRouteDestination: destination,
             activeRouteMinutesToArrival: minutesToArrival,
             activeRouteMilesToArrival: milesToArrival,
+        )
+    }
+
+    private static func mapLocation(_ pb: CarServer_LocationState) -> LocationState {
+        LocationState(
+            latitude: pb.optionalLatitude != nil ? Double(pb.latitude) : nil,
+            longitude: pb.optionalLongitude != nil ? Double(pb.longitude) : nil,
+            headingDegrees: pb.optionalHeading != nil ? Double(pb.heading) : nil,
+            gpsAsOfSecondsSinceEpoch: pb.optionalGpsAsOf != nil ? pb.gpsAsOf : nil,
+            correctedLatitude: pb.optionalCorrectedLatitude != nil ? Double(pb.correctedLatitude) : nil,
+            correctedLongitude: pb.optionalCorrectedLongitude != nil ? Double(pb.correctedLongitude) : nil,
+            nativeLatitude: pb.optionalNativeLatitude != nil ? Double(pb.nativeLatitude) : nil,
+            nativeLongitude: pb.optionalNativeLongitude != nil ? Double(pb.nativeLongitude) : nil,
+            homelinkNearby: pb.optionalHomelinkNearby != nil ? pb.homelinkNearby : nil,
+            locationName: pb.optionalLocationName != nil ? pb.locationName : nil,
+            geoLatitude: pb.optionalGeoLatitude != nil ? Double(pb.geoLatitude) : nil,
+            geoLongitude: pb.optionalGeoLongitude != nil ? Double(pb.geoLongitude) : nil,
+            geoHeadingDegrees: pb.optionalGeoHeading != nil ? Double(pb.geoHeading) : nil,
+            geoElevationMeters: pb.optionalGeoElevation != nil ? Double(pb.geoElevation) : nil,
+            geoAccuracyMeters: pb.optionalGeoAccuracy != nil ? Double(pb.geoAccuracy) : nil,
+            estimatedGpsValid: pb.optionalEstimatedGpsValid != nil ? pb.estimatedGpsValid : nil,
         )
     }
 

@@ -9,6 +9,7 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         XCTAssertNil(snapshot.charge)
         XCTAssertNil(snapshot.climate)
         XCTAssertNil(snapshot.drive)
+        XCTAssertNil(snapshot.location)
         XCTAssertNil(snapshot.closures)
         XCTAssertNil(snapshot.tirePressure)
         XCTAssertNil(snapshot.media)
@@ -212,6 +213,67 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         climate.seatHeaterLeft = 99 // not a valid SeatHeaterLevel raw value
         data.climateState = climate
         XCTAssertNil(VehicleSnapshotMapper.map(data).climate?.seatHeaterFrontLeft)
+    }
+
+    // MARK: - Location
+
+    func testLocationStateMappingPopulated() {
+        var data = CarServer_VehicleData()
+        var loc = CarServer_LocationState()
+        loc.latitude = 37.4275
+        loc.longitude = -122.1697
+        loc.heading = 270
+        loc.gpsAsOf = 1_700_000_000
+        loc.correctedLatitude = 37.4276
+        loc.correctedLongitude = -122.1698
+        loc.nativeLatitude = 37.4274
+        loc.nativeLongitude = -122.1696
+        loc.homelinkNearby = true
+        loc.locationName = "Home"
+        loc.geoLatitude = 37.4275
+        loc.geoLongitude = -122.1697
+        loc.geoHeading = 271.5
+        loc.geoElevation = 30.0
+        loc.geoAccuracy = 5.0
+        loc.estimatedGpsValid = true
+        data.locationState = loc
+
+        let snapshot = VehicleSnapshotMapper.map(data)
+        let location = snapshot.location
+        XCTAssertNotNil(location)
+        XCTAssertEqual(location?.latitude ?? 0, Double(Float(37.4275)), accuracy: 0.0001)
+        XCTAssertEqual(location?.longitude ?? 0, Double(Float(-122.1697)), accuracy: 0.0001)
+        XCTAssertEqual(location?.headingDegrees, 270)
+        XCTAssertEqual(location?.gpsAsOfSecondsSinceEpoch, 1_700_000_000)
+        XCTAssertEqual(location?.correctedLatitude ?? 0, Double(Float(37.4276)), accuracy: 0.0001)
+        XCTAssertEqual(location?.correctedLongitude ?? 0, Double(Float(-122.1698)), accuracy: 0.0001)
+        XCTAssertEqual(location?.nativeLatitude ?? 0, Double(Float(37.4274)), accuracy: 0.0001)
+        XCTAssertEqual(location?.nativeLongitude ?? 0, Double(Float(-122.1696)), accuracy: 0.0001)
+        XCTAssertEqual(location?.homelinkNearby, true)
+        XCTAssertEqual(location?.locationName, "Home")
+        XCTAssertEqual(location?.geoLatitude ?? 0, Double(Float(37.4275)), accuracy: 0.0001)
+        XCTAssertEqual(location?.geoLongitude ?? 0, Double(Float(-122.1697)), accuracy: 0.0001)
+        XCTAssertEqual(location?.geoHeadingDegrees ?? 0, Double(Float(271.5)), accuracy: 0.01)
+        XCTAssertEqual(location?.geoElevationMeters ?? 0, 30.0, accuracy: 0.001)
+        XCTAssertEqual(location?.geoAccuracyMeters ?? 0, 5.0, accuracy: 0.001)
+        XCTAssertEqual(location?.estimatedGpsValid, true)
+    }
+
+    func testLocationStateMissingFieldsAreNil() {
+        var data = CarServer_VehicleData()
+        // Set only latitude — other oneofs should map to nil.
+        var loc = CarServer_LocationState()
+        loc.latitude = 1.5
+        data.locationState = loc
+
+        let snapshot = VehicleSnapshotMapper.map(data)
+        let location = snapshot.location
+        XCTAssertNotNil(location)
+        XCTAssertEqual(location?.latitude ?? 0, Double(Float(1.5)), accuracy: 0.0001)
+        XCTAssertNil(location?.longitude)
+        XCTAssertNil(location?.headingDegrees)
+        XCTAssertNil(location?.gpsAsOfSecondsSinceEpoch)
+        XCTAssertNil(location?.homelinkNearby)
     }
 
     // MARK: - Closures
