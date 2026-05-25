@@ -165,21 +165,87 @@ enum VehicleSnapshotMapper {
 
     private static func mapClimate(_ pb: CarServer_ClimateState) -> ClimateState {
         ClimateState(
-            insideTempCelsius: Double(pb.insideTempCelsius),
-            outsideTempCelsius: Double(pb.outsideTempCelsius),
-            driverTempSettingCelsius: Double(pb.driverTempSetting),
-            passengerTempSettingCelsius: Double(pb.passengerTempSetting),
-            fanStatus: Int(pb.fanStatus),
-            isClimateOn: pb.isClimateOn,
-            seatHeaterFrontLeft: mapSeatHeater(pb.seatHeaterLeft),
-            seatHeaterFrontRight: mapSeatHeater(pb.seatHeaterRight),
-            seatHeaterRearLeft: mapSeatHeater(pb.seatHeaterRearLeft),
-            seatHeaterRearCenter: mapSeatHeater(pb.seatHeaterRearCenter),
-            seatHeaterRearRight: mapSeatHeater(pb.seatHeaterRearRight),
-            steeringWheelHeater: pb.steeringWheelHeater,
-            isBatteryHeaterOn: pb.batteryHeater,
-            defrostOn: mapDefrost(pb.defrostMode),
-            bioweaponMode: pb.bioweaponModeOn,
+            insideTempCelsius: pb.optionalInsideTempCelsius != nil
+                ? Double(pb.insideTempCelsius) : nil,
+            outsideTempCelsius: pb.optionalOutsideTempCelsius != nil
+                ? Double(pb.outsideTempCelsius) : nil,
+            driverTempSettingCelsius: pb.optionalDriverTempSetting != nil
+                ? Double(pb.driverTempSetting) : nil,
+            passengerTempSettingCelsius: pb.optionalPassengerTempSetting != nil
+                ? Double(pb.passengerTempSetting) : nil,
+            minAvailTempCelsius: pb.optionalMinAvailTempCelsius != nil
+                ? Double(pb.minAvailTempCelsius) : nil,
+            maxAvailTempCelsius: pb.optionalMaxAvailTempCelsius != nil
+                ? Double(pb.maxAvailTempCelsius) : nil,
+            fanStatus: pb.optionalFanStatus != nil ? Int(pb.fanStatus) : nil,
+            isClimateOn: pb.optionalIsClimateOn != nil ? pb.isClimateOn : nil,
+            isAutoConditioningOn: pb.optionalIsAutoConditioningOn != nil
+                ? pb.isAutoConditioningOn : nil,
+            isPreconditioning: pb.optionalIsPreconditioning != nil
+                ? pb.isPreconditioning : nil,
+            hvacAutoRequest: pb.optionalHvacAutoRequest != nil
+                ? mapHvacAutoRequest(pb.hvacAutoRequest) : nil,
+            climateKeeperMode: pb.hasClimateKeeperMode
+                ? mapClimateKeeperMode(pb.climateKeeperMode) : nil,
+            isFrontDefrosterOn: pb.optionalIsFrontDefrosterOn != nil
+                ? pb.isFrontDefrosterOn : nil,
+            isRearDefrosterOn: pb.optionalIsRearDefrosterOn != nil
+                ? pb.isRearDefrosterOn : nil,
+            defrostOn: pb.hasDefrostMode ? mapDefrost(pb.defrostMode) : nil,
+            remoteHeaterControlEnabled: pb.optionalRemoteHeaterControlEnabled != nil
+                ? pb.remoteHeaterControlEnabled : nil,
+            bioweaponMode: pb.optionalBioweaponModeOn != nil ? pb.bioweaponModeOn : nil,
+            seatHeaterFrontLeft: pb.optionalSeatHeaterLeft != nil
+                ? mapSeatHeater(pb.seatHeaterLeft) : nil,
+            seatHeaterFrontRight: pb.optionalSeatHeaterRight != nil
+                ? mapSeatHeater(pb.seatHeaterRight) : nil,
+            seatHeaterRearLeft: pb.optionalSeatHeaterRearLeft != nil
+                ? mapSeatHeater(pb.seatHeaterRearLeft) : nil,
+            seatHeaterRearCenter: pb.optionalSeatHeaterRearCenter != nil
+                ? mapSeatHeater(pb.seatHeaterRearCenter) : nil,
+            seatHeaterRearRight: pb.optionalSeatHeaterRearRight != nil
+                ? mapSeatHeater(pb.seatHeaterRearRight) : nil,
+            seatHeaterRearLeftBack: pb.optionalSeatHeaterRearLeftBack != nil
+                ? mapSeatHeater(pb.seatHeaterRearLeftBack) : nil,
+            seatHeaterRearRightBack: pb.optionalSeatHeaterRearRightBack != nil
+                ? mapSeatHeater(pb.seatHeaterRearRightBack) : nil,
+            seatHeaterThirdRowLeft: pb.optionalSeatHeaterThirdRowLeft != nil
+                ? mapSeatHeater(pb.seatHeaterThirdRowLeft) : nil,
+            seatHeaterThirdRowRight: pb.optionalSeatHeaterThirdRowRight != nil
+                ? mapSeatHeater(pb.seatHeaterThirdRowRight) : nil,
+            autoSeatClimateLeft: pb.optionalAutoSeatClimateLeft != nil
+                ? pb.autoSeatClimateLeft : nil,
+            autoSeatClimateRight: pb.optionalAutoSeatClimateRight != nil
+                ? pb.autoSeatClimateRight : nil,
+            seatFanFrontLeft: pb.optionalSeatFanFrontLeft != nil
+                ? Int(pb.seatFanFrontLeft) : nil,
+            seatFanFrontRight: pb.optionalSeatFanFrontRight != nil
+                ? Int(pb.seatFanFrontRight) : nil,
+            steeringWheelHeater: pb.optionalSteeringWheelHeater != nil
+                ? pb.steeringWheelHeater : nil,
+            autoSteeringWheelHeat: pb.optionalAutoSteeringWheelHeat != nil
+                ? pb.autoSteeringWheelHeat : nil,
+            steeringWheelHeatLevel: pb.optionalSteeringWheelHeatLevel != nil
+                ? mapSteeringWheelHeatLevel(pb.steeringWheelHeatLevel) : nil,
+            wiperBladeHeater: pb.optionalWiperBladeHeater != nil
+                ? pb.wiperBladeHeater : nil,
+            sideMirrorHeaters: pb.optionalSideMirrorHeaters != nil
+                ? pb.sideMirrorHeaters : nil,
+            isBatteryHeaterOn: pb.optionalBatteryHeater != nil ? pb.batteryHeater : nil,
+            isBatteryHeaterNoPower: pb.optionalBatteryHeaterNoPower != nil
+                ? pb.batteryHeaterNoPower : nil,
+            allowCabinOverheatProtection: pb.optionalAllowCabinOverheatProtection != nil
+                ? pb.allowCabinOverheatProtection : nil,
+            supportsFanOnlyCabinOverheatProtection: pb.optionalSupportsFanOnlyCabinOverheatProtection != nil
+                ? pb.supportsFanOnlyCabinOverheatProtection : nil,
+            cabinOverheatProtection: pb.optionalCabinOverheatProtection != nil
+                ? mapCabinOverheatProtection(pb.cabinOverheatProtection) : nil,
+            cabinOverheatProtectionActivelyCooling: pb.optionalCabinOverheatProtectionActivelyCooling != nil
+                ? pb.cabinOverheatProtectionActivelyCooling : nil,
+            copActivationTemperature: pb.optionalCopActivationTemperature != nil
+                ? mapCopActivationTemp(pb.copActivationTemperature) : nil,
+            copNotRunningReason: pb.optionalCopNotRunningReason != nil
+                ? mapCopNotRunningReason(pb.copNotRunningReason) : nil,
         )
     }
 
@@ -546,6 +612,79 @@ enum VehicleSnapshotMapper {
         case .user: return .user
         case .reconnecting: return .reconnecting
         case .authentication: return .authentication
+        case .UNRECOGNIZED: return nil
+        }
+    }
+
+    private static func mapHvacAutoRequest(
+        _ pb: CarServer_ClimateState.HvacAutoRequest,
+    ) -> ClimateState.HvacAutoRequest? {
+        switch pb {
+        case .on: return .on
+        case .override: return .override
+        case .UNRECOGNIZED: return nil
+        }
+    }
+
+    private static func mapClimateKeeperMode(
+        _ pb: CarServer_ClimateState.ClimateKeeperMode,
+    ) -> ClimateState.ClimateKeeperMode? {
+        guard let type = pb.type else { return nil }
+        switch type {
+        case .unknown: return .unknown
+        case .off: return .off
+        case .on: return .on
+        case .dog: return .dog
+        case .party: return .party
+        }
+    }
+
+    private static func mapCabinOverheatProtection(
+        _ pb: CarServer_ClimateState.CabinOverheatProtection_E,
+    ) -> ClimateState.CabinOverheatProtectionMode? {
+        switch pb {
+        case .cabinOverheatProtectionOff: return .off
+        case .cabinOverheatProtectionOn: return .on
+        case .cabinOverheatProtectionFanOnly: return .fanOnly
+        case .UNRECOGNIZED: return nil
+        }
+    }
+
+    private static func mapCopActivationTemp(
+        _ pb: CarServer_ClimateState.CopActivationTemp,
+    ) -> ClimateState.CopActivationTemperature? {
+        switch pb {
+        case .unspecified: return .unspecified
+        case .low: return .low
+        case .medium: return .medium
+        case .high: return .high
+        case .UNRECOGNIZED: return nil
+        }
+    }
+
+    private static func mapCopNotRunningReason(
+        _ pb: CarServer_ClimateState.COPNotRunningReason,
+    ) -> ClimateState.CopNotRunningReason? {
+        switch pb {
+        case .noReason: return .noReason
+        case .userInteraction: return .userInteraction
+        case .energyConsumptionReached: return .energyConsumptionReached
+        case .timeout: return .timeout
+        case .lowSolarLoad: return .lowSolarLoad
+        case .fault: return .fault
+        case .cabinBelowThreshold: return .cabinBelowThreshold
+        case .UNRECOGNIZED: return nil
+        }
+    }
+
+    private static func mapSteeringWheelHeatLevel(
+        _ pb: CarServer_StwHeatLevel,
+    ) -> ClimateState.SteeringWheelHeatLevel? {
+        switch pb {
+        case .unknown: return .unknown
+        case .off: return .off
+        case .low: return .low
+        case .high: return .high
         case .UNRECOGNIZED: return nil
         }
     }

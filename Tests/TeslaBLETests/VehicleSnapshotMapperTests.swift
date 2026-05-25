@@ -396,6 +396,114 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         XCTAssertNil(VehicleSnapshotMapper.map(data).climate?.defrostOn)
     }
 
+    func testClimateStateUnsetFieldsAreNil() {
+        var data = CarServer_VehicleData()
+        data.climateState = CarServer_ClimateState()
+
+        let c = VehicleSnapshotMapper.map(data).climate
+        XCTAssertNotNil(c)
+        XCTAssertNil(c?.insideTempCelsius)
+        XCTAssertNil(c?.outsideTempCelsius)
+        XCTAssertNil(c?.driverTempSettingCelsius)
+        XCTAssertNil(c?.passengerTempSettingCelsius)
+        XCTAssertNil(c?.minAvailTempCelsius)
+        XCTAssertNil(c?.maxAvailTempCelsius)
+        XCTAssertNil(c?.fanStatus)
+        XCTAssertNil(c?.isClimateOn)
+        XCTAssertNil(c?.isAutoConditioningOn)
+        XCTAssertNil(c?.isPreconditioning)
+        XCTAssertNil(c?.hvacAutoRequest)
+        XCTAssertNil(c?.climateKeeperMode)
+        XCTAssertNil(c?.isFrontDefrosterOn)
+        XCTAssertNil(c?.isRearDefrosterOn)
+        XCTAssertNil(c?.defrostOn)
+        XCTAssertNil(c?.remoteHeaterControlEnabled)
+        XCTAssertNil(c?.bioweaponMode)
+        XCTAssertNil(c?.seatHeaterFrontLeft)
+        XCTAssertNil(c?.seatHeaterRearLeftBack)
+        XCTAssertNil(c?.seatHeaterThirdRowLeft)
+        XCTAssertNil(c?.autoSeatClimateLeft)
+        XCTAssertNil(c?.seatFanFrontLeft)
+        XCTAssertNil(c?.steeringWheelHeater)
+        XCTAssertNil(c?.steeringWheelHeatLevel)
+        XCTAssertNil(c?.wiperBladeHeater)
+        XCTAssertNil(c?.sideMirrorHeaters)
+        XCTAssertNil(c?.isBatteryHeaterOn)
+        XCTAssertNil(c?.isBatteryHeaterNoPower)
+        XCTAssertNil(c?.allowCabinOverheatProtection)
+        XCTAssertNil(c?.supportsFanOnlyCabinOverheatProtection)
+        XCTAssertNil(c?.cabinOverheatProtection)
+        XCTAssertNil(c?.cabinOverheatProtectionActivelyCooling)
+        XCTAssertNil(c?.copActivationTemperature)
+        XCTAssertNil(c?.copNotRunningReason)
+    }
+
+    func testClimateStateDepthMapping() {
+        var data = CarServer_VehicleData()
+        var climate = CarServer_ClimateState()
+        climate.minAvailTempCelsius = 15.0
+        climate.maxAvailTempCelsius = 28.0
+        climate.isAutoConditioningOn = true
+        climate.isPreconditioning = false
+        climate.hvacAutoRequest = .override
+        var keeper = CarServer_ClimateState.ClimateKeeperMode()
+        keeper.type = .dog(CarServer_Void())
+        climate.climateKeeperMode = keeper
+        climate.isFrontDefrosterOn = true
+        climate.isRearDefrosterOn = false
+        climate.remoteHeaterControlEnabled = true
+        climate.seatHeaterRearLeftBack = 1
+        climate.seatHeaterRearRightBack = 2
+        climate.seatHeaterThirdRowLeft = 3
+        climate.seatHeaterThirdRowRight = 0
+        climate.autoSeatClimateLeft = true
+        climate.autoSeatClimateRight = false
+        climate.seatFanFrontLeft = 2
+        climate.seatFanFrontRight = 3
+        climate.autoSteeringWheelHeat = true
+        climate.steeringWheelHeatLevel = .high
+        climate.wiperBladeHeater = false
+        climate.sideMirrorHeaters = true
+        climate.batteryHeaterNoPower = true
+        climate.allowCabinOverheatProtection = true
+        climate.supportsFanOnlyCabinOverheatProtection = false
+        climate.cabinOverheatProtection = .cabinOverheatProtectionFanOnly
+        climate.cabinOverheatProtectionActivelyCooling = true
+        climate.copActivationTemperature = .high
+        climate.copNotRunningReason = .energyConsumptionReached
+        data.climateState = climate
+
+        let c = VehicleSnapshotMapper.map(data).climate
+        XCTAssertEqual(c?.minAvailTempCelsius ?? 0, 15.0, accuracy: 0.01)
+        XCTAssertEqual(c?.maxAvailTempCelsius ?? 0, 28.0, accuracy: 0.01)
+        XCTAssertEqual(c?.isAutoConditioningOn, true)
+        XCTAssertEqual(c?.isPreconditioning, false)
+        XCTAssertEqual(c?.hvacAutoRequest, .override)
+        XCTAssertEqual(c?.climateKeeperMode, .dog)
+        XCTAssertEqual(c?.isFrontDefrosterOn, true)
+        XCTAssertEqual(c?.isRearDefrosterOn, false)
+        XCTAssertEqual(c?.remoteHeaterControlEnabled, true)
+        XCTAssertEqual(c?.seatHeaterRearLeftBack, .low)
+        XCTAssertEqual(c?.seatHeaterRearRightBack, .medium)
+        XCTAssertEqual(c?.seatHeaterThirdRowLeft, .high)
+        XCTAssertEqual(c?.seatHeaterThirdRowRight, .off)
+        XCTAssertEqual(c?.autoSeatClimateLeft, true)
+        XCTAssertEqual(c?.autoSeatClimateRight, false)
+        XCTAssertEqual(c?.seatFanFrontLeft, 2)
+        XCTAssertEqual(c?.seatFanFrontRight, 3)
+        XCTAssertEqual(c?.autoSteeringWheelHeat, true)
+        XCTAssertEqual(c?.steeringWheelHeatLevel, .high)
+        XCTAssertEqual(c?.wiperBladeHeater, false)
+        XCTAssertEqual(c?.sideMirrorHeaters, true)
+        XCTAssertEqual(c?.isBatteryHeaterNoPower, true)
+        XCTAssertEqual(c?.allowCabinOverheatProtection, true)
+        XCTAssertEqual(c?.supportsFanOnlyCabinOverheatProtection, false)
+        XCTAssertEqual(c?.cabinOverheatProtection, .fanOnly)
+        XCTAssertEqual(c?.cabinOverheatProtectionActivelyCooling, true)
+        XCTAssertEqual(c?.copActivationTemperature, .high)
+        XCTAssertEqual(c?.copNotRunningReason, .energyConsumptionReached)
+    }
+
     func testClimateSeatHeaterOutOfRangeReturnsNil() {
         var data = CarServer_VehicleData()
         var climate = CarServer_ClimateState()
