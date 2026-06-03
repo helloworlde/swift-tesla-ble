@@ -20,7 +20,14 @@ final class BLETransport: NSObject, Sendable {
     nonisolated(unsafe) static let toVehicleUUID = CBUUID(string: "00000212-b2d1-43f0-9b88-960cebf8b91e")
     nonisolated(unsafe) static let fromVehicleUUID = CBUUID(string: "00000213-b2d1-43f0-9b88-960cebf8b91e")
     private static let maxMessageSize = 1024
-    private static let rxTimeout: TimeInterval = 1.0
+    // 3 s inter-fragment gap before resetting the reassembly buffer.
+    // The original 1 s was too tight in congested RF environments (parking
+    // lots, shopping malls): vehicle BLE stacks occasionally pause between
+    // fragments for 1–2 s under load, causing the buffer to be silently
+    // discarded and the pending receive() continuation to hang until the
+    // Dispatcher's 10 s request timeout fires — appearing to the App as a
+    // mid-handshake disconnect.
+    private static let rxTimeout: TimeInterval = 3.0
     private static let restorationIdentifier = "TeslaBLE.BLETransport.central"
     private static let knownPeripheralDefaultsPrefix = "TeslaBLE.knownPeripheral."
 
@@ -304,6 +311,17 @@ extension BLETransport: CBCentralManagerDelegate {
         assertOnTransportQueue()
         logger?.log(.debug, category: "transport", "Discovered: name=\(localName ?? "nil") peripheral=\(peripheral.name ?? "unnamed") rssi=\(RSSI) target=\(targetLocalName ?? "nil")")
         guard localName == targetLocalName else { return }
+        // If the fallback scan fires while we are already connecting to the same
+        // peripheral (state == .connecting, same identifier), ignore the duplicate
+        // discovery.  Without this guard the fallback triggers a redundant
+        // centralManager.connect() + updateState(.connecting), streaming a
+        // spurious .connecting event and potentially overwriting self.peripheral
+        // with a different CBPeripheral instance for the same device.
+        if state == .connecting, let existing = self.peripheral,
+           existing.identifier == peripheral.identifier {
+            logger?.log(.debug, category: "transport", "Ignoring re-discovered peripheral \(peripheral.identifier.uuidString) — already connecting to it")
+            return
+        }
         logger?.log(.debug, category: "transport", "Found target vehicle! Connecting...")
         connect(peripheral, source: "scan", allowFallbackScan: false)
     }
