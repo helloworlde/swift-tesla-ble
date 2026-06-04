@@ -301,6 +301,8 @@ enum VehicleSnapshotMapper {
             correctedLongitude: pb.optionalCorrectedLongitude != nil ? Double(pb.correctedLongitude) : nil,
             nativeLatitude: pb.optionalNativeLatitude != nil ? Double(pb.nativeLatitude) : nil,
             nativeLongitude: pb.optionalNativeLongitude != nil ? Double(pb.nativeLongitude) : nil,
+            nativeLocationSupported: pb.optionalNativeLocationSupported != nil ? pb.nativeLocationSupported : nil,
+            nativeType: pb.hasNativeType ? mapCoordinateType(pb.nativeType) : nil,
             homelinkNearby: pb.optionalHomelinkNearby != nil ? pb.homelinkNearby : nil,
             locationName: pb.optionalLocationName != nil ? pb.locationName : nil,
             geoLatitude: pb.optionalGeoLatitude != nil ? Double(pb.geoLatitude) : nil,
@@ -309,7 +311,19 @@ enum VehicleSnapshotMapper {
             geoElevationMeters: pb.optionalGeoElevation != nil ? Double(pb.geoElevation) : nil,
             geoAccuracyMeters: pb.optionalGeoAccuracy != nil ? Double(pb.geoAccuracy) : nil,
             estimatedGpsValid: pb.optionalEstimatedGpsValid != nil ? pb.estimatedGpsValid : nil,
+            estimatedToRawDistanceMeters: pb.optionalEstimatedToRawDistance != nil
+                ? Double(pb.estimatedToRawDistance) : nil,
         )
+    }
+
+    private static func mapCoordinateType(
+        _ pb: CarServer_LocationState.GPSCoordinateType
+    ) -> LocationState.CoordinateType? {
+        switch pb.type {
+        case .wgs: return .wgs
+        case .gcj: return .gcj
+        case nil: return nil
+        }
     }
 
     private static func mapClosures(_ pb: CarServer_ClosuresState) -> ClosuresState {

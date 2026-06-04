@@ -575,6 +575,8 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         loc.correctedLongitude = -122.1698
         loc.nativeLatitude = 37.4274
         loc.nativeLongitude = -122.1696
+        loc.nativeLocationSupported = true
+        loc.nativeType.wgs = CarServer_Void()
         loc.homelinkNearby = true
         loc.locationName = "Home"
         loc.geoLatitude = 37.4275
@@ -583,6 +585,7 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         loc.geoElevation = 30.0
         loc.geoAccuracy = 5.0
         loc.estimatedGpsValid = true
+        loc.estimatedToRawDistance = 12.5
         data.locationState = loc
 
         let snapshot = VehicleSnapshotMapper.map(data)
@@ -596,6 +599,8 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         XCTAssertEqual(location?.correctedLongitude ?? 0, Double(Float(-122.1698)), accuracy: 0.0001)
         XCTAssertEqual(location?.nativeLatitude ?? 0, Double(Float(37.4274)), accuracy: 0.0001)
         XCTAssertEqual(location?.nativeLongitude ?? 0, Double(Float(-122.1696)), accuracy: 0.0001)
+        XCTAssertEqual(location?.nativeLocationSupported, true)
+        XCTAssertEqual(location?.nativeType, .wgs)
         XCTAssertEqual(location?.homelinkNearby, true)
         XCTAssertEqual(location?.locationName, "Home")
         XCTAssertEqual(location?.geoLatitude ?? 0, Double(Float(37.4275)), accuracy: 0.0001)
@@ -604,6 +609,18 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         XCTAssertEqual(location?.geoElevationMeters ?? 0, 30.0, accuracy: 0.001)
         XCTAssertEqual(location?.geoAccuracyMeters ?? 0, 5.0, accuracy: 0.001)
         XCTAssertEqual(location?.estimatedGpsValid, true)
+        XCTAssertEqual(location?.estimatedToRawDistanceMeters ?? 0, Double(Float(12.5)), accuracy: 0.001)
+    }
+
+    func testLocationStateMapsGCJNativeType() {
+        var data = CarServer_VehicleData()
+        var loc = CarServer_LocationState()
+        loc.nativeType.gcj = CarServer_Void()
+        data.locationState = loc
+
+        let snapshot = VehicleSnapshotMapper.map(data)
+
+        XCTAssertEqual(snapshot.location?.nativeType, .gcj)
     }
 
     func testLocationStateMissingFieldsAreNil() {
@@ -620,7 +637,10 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         XCTAssertNil(location?.longitude)
         XCTAssertNil(location?.headingDegrees)
         XCTAssertNil(location?.gpsAsOfSecondsSinceEpoch)
+        XCTAssertNil(location?.nativeLocationSupported)
+        XCTAssertNil(location?.nativeType)
         XCTAssertNil(location?.homelinkNearby)
+        XCTAssertNil(location?.estimatedToRawDistanceMeters)
     }
 
     // MARK: - Closures
