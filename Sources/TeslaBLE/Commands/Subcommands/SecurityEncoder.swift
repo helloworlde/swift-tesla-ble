@@ -34,6 +34,49 @@ enum SecurityEncoder {
             let body = try encodeRemoveKey(publicKey: publicKey)
             return (.vehicleSecurity, body)
 
+        case let .addPermissions(publicKey, role):
+            let body = try encodePermissionChange(publicKey: publicKey, role: role, kind: .add)
+            return (.vehicleSecurity, body)
+
+        case let .removePermissions(publicKey, role):
+            let body = try encodePermissionChange(publicKey: publicKey, role: role, kind: .remove)
+            return (.vehicleSecurity, body)
+
+        case let .updateKeyPermissions(publicKey, role):
+            let body = try encodePermissionChange(publicKey: publicKey, role: role, kind: .update)
+            return (.vehicleSecurity, body)
+
+        case let .replaceKey(oldPublicKey, newPublicKey, role, impermanent):
+            let body = try encodeReplaceKey(
+                oldPublicKey: oldPublicKey,
+                newPublicKey: newPublicKey,
+                role: role,
+                impermanent: impermanent,
+            )
+            return (.vehicleSecurity, body)
+
+        case let .addImpermanentKey(publicKey, role, formFactor):
+            let body = try encodeImpermanentKey(
+                publicKey: publicKey,
+                role: role,
+                formFactor: formFactor,
+                replaceExisting: false,
+            )
+            return (.vehicleSecurity, body)
+
+        case let .addImpermanentKeyAndRemoveExisting(publicKey, role, formFactor):
+            let body = try encodeImpermanentKey(
+                publicKey: publicKey,
+                role: role,
+                formFactor: formFactor,
+                replaceExisting: true,
+            )
+            return (.vehicleSecurity, body)
+
+        case .removeAllImpermanentKeys:
+            let body = try encodeRemoveAllImpermanentKeys()
+            return (.vehicleSecurity, body)
+
         // MARK: - Infotainment: Sentry, Valet, Guest
 
         case let .setSentryMode(on):
@@ -167,8 +210,8 @@ enum SecurityEncoder {
     /// pairing flow.
     private static func encodeAddKey(
         publicKey: Data,
-        role: Command.KeyRole,
-        formFactor: Command.KeyFormFactor,
+        role: KeyRole,
+        formFactor: KeyFormFactor,
     ) throws -> Data {
         guard publicKey.count == 65 else {
             throw Error.encodingFailed("addKey publicKey must be 65-byte uncompressed SEC1 (got \(publicKey.count))")
@@ -191,6 +234,130 @@ enum SecurityEncoder {
         return try serialize(unsigned)
     }
 
+    private enum PermissionChangeKind {
+        case add
+        case remove
+        case update
+    }
+
+    /// Encodes `WhitelistOperation.addPermissionsToPublicKey` and its
+    /// counterpart by setting `key` and `keyRole` on a `VCSEC_PermissionChange`.
+    /// The wire shape is identical to `addKeyToWhitelistAndAddPermissions`
+    /// minus the `metadataForKey` envelope, which only applies when the key
+    /// is being introduced for the first time.
+    private static func encodePermissionChange(
+        publicKey: Data,
+        role: KeyRole,
+        kind: PermissionChangeKind,
+    ) throws -> Data {
+        guard publicKey.count == 65 else {
+            throw Error.encodingFailed("permission change publicKey must be 65-byte uncompressed SEC1 (got \(publicKey.count))")
+        }
+        var pubKey = VCSEC_PublicKey()
+        pubKey.publicKeyRaw = publicKey
+
+        var permChange = VCSEC_PermissionChange()
+        permChange.key = pubKey
+        permChange.keyRole = Self.mapRole(role)
+
+        var whitelist = VCSEC_WhitelistOperation()
+        switch kind {
+        case .add:
+            whitelist.subMessage = .addPermissionsToPublicKey(permChange)
+        case .remove:
+            whitelist.subMessage = .removePermissionsFromPublicKey(permChange)
+        case .update:
+            whitelist.subMessage = .updateKeyAndPermissions(permChange)
+        }
+
+        var unsigned = VCSEC_UnsignedMessage()
+        unsigned.subMessage = .whitelistOperation(whitelist)
+        return try serialize(unsigned)
+    }
+
+    /// Encodes `WhitelistOperation.replaceKey`. Both keys are required as
+    /// 65-byte uncompressed SEC1 inputs; we always use the
+    /// `publicKeyToReplace` arm of the `keyToReplace` oneof — the slot-based
+    /// arm is omitted because the slot-numbering API isn't part of the public
+    /// surface yet.
+    private static func encodeReplaceKey(
+        oldPublicKey: Data,
+        newPublicKey: Data,
+        role: KeyRole,
+        impermanent: Bool,
+    ) throws -> Data {
+        guard oldPublicKey.count == 65 else {
+            throw Error.encodingFailed("replaceKey oldPublicKey must be 65-byte uncompressed SEC1 (got \(oldPublicKey.count))")
+        }
+        guard newPublicKey.count == 65 else {
+            throw Error.encodingFailed("replaceKey newPublicKey must be 65-byte uncompressed SEC1 (got \(newPublicKey.count))")
+        }
+        var oldKey = VCSEC_PublicKey()
+        oldKey.publicKeyRaw = oldPublicKey
+        var newKey = VCSEC_PublicKey()
+        newKey.publicKeyRaw = newPublicKey
+
+        var replace = VCSEC_ReplaceKey()
+        replace.keyToReplace = .publicKeyToReplace(oldKey)
+        replace.keyToAdd = newKey
+        replace.keyRole = Self.mapRole(role)
+        replace.impermanent = impermanent
+
+        var whitelist = VCSEC_WhitelistOperation()
+        whitelist.subMessage = .replaceKey(replace)
+
+        var unsigned = VCSEC_UnsignedMessage()
+        unsigned.subMessage = .whitelistOperation(whitelist)
+        return try serialize(unsigned)
+    }
+
+    /// Encodes `WhitelistOperation.addImpermanentKey` and the
+    /// `…AndRemoveExisting` variant — both wrap a `VCSEC_PermissionChange`
+    /// and carry a `metadataForKey` envelope, just like the initial
+    /// `addKey` enrollment.
+    private static func encodeImpermanentKey(
+        publicKey: Data,
+        role: KeyRole,
+        formFactor: KeyFormFactor,
+        replaceExisting: Bool,
+    ) throws -> Data {
+        guard publicKey.count == 65 else {
+            throw Error.encodingFailed("impermanent key publicKey must be 65-byte uncompressed SEC1 (got \(publicKey.count))")
+        }
+        var pubKey = VCSEC_PublicKey()
+        pubKey.publicKeyRaw = publicKey
+
+        var permChange = VCSEC_PermissionChange()
+        permChange.key = pubKey
+        permChange.keyRole = Self.mapRole(role)
+
+        var whitelist = VCSEC_WhitelistOperation()
+        if replaceExisting {
+            whitelist.subMessage = .addImpermanentKeyAndRemoveExisting(permChange)
+        } else {
+            whitelist.subMessage = .addImpermanentKey(permChange)
+        }
+        var metadata = VCSEC_KeyMetadata()
+        metadata.keyFormFactor = Self.mapFormFactor(formFactor)
+        whitelist.metadataForKey = metadata
+
+        var unsigned = VCSEC_UnsignedMessage()
+        unsigned.subMessage = .whitelistOperation(whitelist)
+        return try serialize(unsigned)
+    }
+
+    private static func encodeRemoveAllImpermanentKeys() throws -> Data {
+        var whitelist = VCSEC_WhitelistOperation()
+        // The proto field is a bool sentinel; setting it to `true` selects
+        // the operation. `false` would still serialize the oneof but is
+        // semantically meaningless, so we always send `true`.
+        whitelist.subMessage = .removeAllImpermanentKeys(true)
+
+        var unsigned = VCSEC_UnsignedMessage()
+        unsigned.subMessage = .whitelistOperation(whitelist)
+        return try serialize(unsigned)
+    }
+
     private static func encodeRemoveKey(publicKey: Data) throws -> Data {
         guard publicKey.count == 65 else {
             throw Error.encodingFailed("removeKey publicKey must be 65-byte uncompressed SEC1 (got \(publicKey.count))")
@@ -206,20 +373,28 @@ enum SecurityEncoder {
         return try serialize(unsigned)
     }
 
-    private static func mapRole(_ role: Command.KeyRole) -> Keys_Role {
+    private static func mapRole(_ role: KeyRole) -> Keys_Role {
         switch role {
+        case .none: .none
+        case .service: .service
         case .owner: .owner
         case .driver: .driver
+        case .fleetManager: .fm
+        case .vehicleMonitor: .vehicleMonitor
+        case .chargingManager: .chargingManager
+        case .guest: .guest
+        case let .unrecognized(i): Keys_Role(rawValue: i) ?? .none
         }
     }
 
-    private static func mapFormFactor(_ formFactor: Command.KeyFormFactor) -> VCSEC_KeyFormFactor {
+    private static func mapFormFactor(_ formFactor: KeyFormFactor) -> VCSEC_KeyFormFactor {
         switch formFactor {
         case .unknown: .unknown
         case .nfcCard: .nfcCard
         case .iosDevice: .iosDevice
         case .androidDevice: .androidDevice
         case .cloudKey: .cloudKey
+        case let .unrecognized(i): VCSEC_KeyFormFactor(rawValue: i) ?? .unknown
         }
     }
 
@@ -264,7 +439,10 @@ enum SecurityEncoder {
             var req = VCSEC_ClosureMoveRequest()
             req.tonneau = .closureMoveTypeStop
             unsigned.subMessage = .closureMoveRequest(req)
-        case .addKey, .removeKey, .setSentryMode, .setValetMode, .eraseGuestData,
+        case .addKey, .removeKey, .addPermissions, .removePermissions, .updateKeyPermissions,
+             .replaceKey, .addImpermanentKey, .addImpermanentKeyAndRemoveExisting,
+             .removeAllImpermanentKeys,
+             .setSentryMode, .setValetMode, .eraseGuestData,
              .resetPin, .resetValetPin, .setGuestMode, .setPinToDrive, .clearPinToDrive,
              .activateSpeedLimit, .deactivateSpeedLimit, .setSpeedLimit,
              .clearSpeedLimitPin, .clearSpeedLimitPinAdmin:

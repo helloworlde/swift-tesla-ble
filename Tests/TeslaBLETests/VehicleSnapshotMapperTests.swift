@@ -9,6 +9,7 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         XCTAssertNil(snapshot.charge)
         XCTAssertNil(snapshot.climate)
         XCTAssertNil(snapshot.drive)
+        XCTAssertNil(snapshot.location)
         XCTAssertNil(snapshot.closures)
         XCTAssertNil(snapshot.tirePressure)
         XCTAssertNil(snapshot.media)
@@ -47,6 +48,195 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         XCTAssertEqual(snapshot.charge?.chargePortOpen, true)
     }
 
+    func testChargeStateUnsetFieldsAreNil() {
+        var data = CarServer_VehicleData()
+        // Submessage present so `hasChargeState` is true, but no fields set.
+        data.chargeState = CarServer_ChargeState()
+        let charge = VehicleSnapshotMapper.map(data).charge
+        XCTAssertNotNil(charge)
+        XCTAssertNil(charge?.batteryLevel)
+        XCTAssertNil(charge?.batteryRangeMiles)
+        XCTAssertNil(charge?.chargerVoltage)
+        XCTAssertNil(charge?.chargingAmps)
+        XCTAssertNil(charge?.chargeLimitPercent)
+        XCTAssertNil(charge?.chargePortOpen)
+        XCTAssertNil(charge?.chargePortLatch)
+        XCTAssertNil(charge?.connectedCableType)
+        XCTAssertNil(charge?.fastChargerType)
+        XCTAssertNil(charge?.fastChargerBrand)
+        XCTAssertNil(charge?.scheduledChargingMode)
+        XCTAssertNil(charge?.outletState)
+        XCTAssertNil(charge?.powershare)
+        XCTAssertNil(charge?.homeLocation)
+        XCTAssertNil(charge?.workLocation)
+    }
+
+    func testChargeStateDepthMapping() {
+        var data = CarServer_VehicleData()
+        var charge = CarServer_ChargeState()
+        charge.usableBatteryLevel = 73
+        charge.idealBatteryRange = 260.0
+        charge.chargerPilotCurrent = 40
+        charge.chargeCurrentRequest = 32
+        charge.chargeCurrentRequestMax = 48
+        charge.chargingAmps = 32
+        charge.chargerPhases = 3
+        charge.minutesToChargeLimit = 80
+        charge.chargeEnergyAdded = 12.4
+        charge.chargeMilesAddedRated = 30.0
+        charge.chargeMilesAddedIdeal = 32.5
+        charge.chargeRateMphFloat = 31.5
+        charge.tripCharging = true
+        charge.superchargerSessionTripPlanner = true
+        charge.chargeLimitSocStd = 80
+        charge.chargeLimitSocMin = 50
+        charge.chargeLimitSocMax = 100
+        charge.oneTimeSocLimit = 95
+        charge.chargePortColdWeatherMode = false
+        charge.chargeCableUnlatched = false
+        charge.fastChargerPresent = true
+        charge.scheduledChargingPending = true
+        charge.scheduledChargingStartTime = 1_700_000_000
+        charge.scheduledChargingStartTimeMinutes = 1320
+        charge.scheduledChargingStartTimeApp = 1320
+        charge.scheduledDepartureTimeMinutes = 480
+        charge.offPeakHoursEndTime = 360
+        charge.preconditioningEnabled = true
+        charge.userChargeEnableRequest = true
+        charge.chargeEnableRequest = true
+        charge.managedChargingActive = true
+        charge.managedChargingUserCanceled = false
+        charge.managedChargingStartTime = 1_700_000_500
+        charge.outletSocLimit = 30
+        charge.powerFeedSocLimit = 25
+        charge.outletTimeRemaining = 7200
+        charge.powerFeedTimeRemaining = 14400
+        charge.outletMaxTimerMinutes = 720
+
+        // Powershare cluster.
+        charge.powershareFeatureAllowed = true
+        charge.powershareFeatureEnabled = true
+        charge.powershareRequest = true
+        charge.powershareInstantaneousLoadKw = 4.2
+        charge.powershareVehicleEnergyLeftHr = 18
+        charge.powershareSocLimit = 20
+
+        // Saved locations.
+        var home = CarServer_LatLong()
+        home.latitude = 37.4
+        home.longitude = -122.1
+        charge.homeLocation = home
+        var work = CarServer_LatLong()
+        work.latitude = 37.5
+        work.longitude = -122.0
+        charge.workLocation = work
+
+        // ChargeLimitReason enum.
+        charge.chargeLimitReason = .battTempLow
+
+        // ScheduledChargingMode enum.
+        charge.scheduledChargingMode = .departBy
+
+        // ChargePortLatch oneof.
+        var latch = CarServer_ChargePortLatchState()
+        latch.type = .engaged(CarServer_Void())
+        charge.chargePortLatch = latch
+
+        // ChargePortColor enum.
+        charge.chargePortColor = .chargePortColorGreen
+
+        // CableType oneof.
+        var cable = CarServer_ChargeState.CableType()
+        cable.type = .iec(CarServer_Void())
+        charge.connChargeCable = cable
+
+        // FastChargerType / Brand oneof.
+        var ftype = CarServer_ChargeState.ChargerType()
+        ftype.type = .supercharger(CarServer_Void())
+        charge.fastChargerType = ftype
+        var brand = CarServer_ChargeState.ChargerBrand()
+        brand.type = .tesla(CarServer_Void())
+        charge.fastChargerBrand = brand
+
+        // Outlet / power-feed enums.
+        charge.outletState = .cabin
+        charge.powerFeedState = .cabinAndBed
+
+        // Powershare enums.
+        charge.powershareType = .home
+        charge.powershareStatus = .active
+        charge.powershareStopReason = .user
+
+        data.chargeState = charge
+
+        let cs = VehicleSnapshotMapper.map(data).charge
+        XCTAssertEqual(cs?.usableBatteryLevel, 73)
+        XCTAssertEqual(cs?.idealBatteryRangeMiles ?? 0, Double(Float(260.0)), accuracy: 0.01)
+        XCTAssertEqual(cs?.chargerPilotCurrent, 40)
+        XCTAssertEqual(cs?.chargeCurrentRequest, 32)
+        XCTAssertEqual(cs?.chargeCurrentRequestMax, 48)
+        XCTAssertEqual(cs?.chargingAmps, 32)
+        XCTAssertEqual(cs?.chargerPhases, 3)
+        XCTAssertEqual(cs?.minutesToChargeLimit, 80)
+        XCTAssertEqual(cs?.chargeEnergyAddedKWh ?? 0, Double(Float(12.4)), accuracy: 0.01)
+        XCTAssertEqual(cs?.chargeMilesAddedRated ?? 0, Double(Float(30.0)), accuracy: 0.01)
+        XCTAssertEqual(cs?.chargeMilesAddedIdeal ?? 0, Double(Float(32.5)), accuracy: 0.01)
+        // chargeRateMphFloat takes precedence over the integer field.
+        XCTAssertEqual(cs?.chargeRateMph ?? 0, Double(Float(31.5)), accuracy: 0.01)
+        XCTAssertEqual(cs?.tripCharging, true)
+        XCTAssertEqual(cs?.superchargerSessionTripPlanner, true)
+        XCTAssertEqual(cs?.chargeLimitStandardPercent, 80)
+        XCTAssertEqual(cs?.chargeLimitMinPercent, 50)
+        XCTAssertEqual(cs?.chargeLimitMaxPercent, 100)
+        XCTAssertEqual(cs?.oneTimeChargeLimitPercent, 95)
+        XCTAssertEqual(cs?.chargeLimitReason, .batteryTempLow)
+        XCTAssertEqual(cs?.scheduledChargingMode, .departBy)
+        XCTAssertEqual(cs?.scheduledChargingPending, true)
+        XCTAssertEqual(cs?.scheduledChargingStartTimeSecondsSinceEpoch, 1_700_000_000)
+        XCTAssertEqual(cs?.scheduledChargingStartTimeMinutes, 1320)
+        XCTAssertEqual(cs?.scheduledChargingStartTimeAppMinutes, 1320)
+        XCTAssertEqual(cs?.scheduledDepartureTimeMinutes, 480)
+        XCTAssertEqual(cs?.offPeakHoursEndTimeMinutes, 360)
+        XCTAssertEqual(cs?.preconditioningEnabled, true)
+        XCTAssertEqual(cs?.userChargeEnableRequest, true)
+        XCTAssertEqual(cs?.chargeEnableRequest, true)
+        XCTAssertEqual(cs?.managedChargingActive, true)
+        XCTAssertEqual(cs?.managedChargingUserCanceled, false)
+        XCTAssertEqual(cs?.managedChargingStartTimeSecondsSinceEpoch, 1_700_000_500)
+        XCTAssertEqual(cs?.outletState, .cabin)
+        XCTAssertEqual(cs?.powerFeedState, .cabinAndBed)
+        XCTAssertEqual(cs?.outletSocLimitPercent, 30)
+        XCTAssertEqual(cs?.powerFeedSocLimitPercent, 25)
+        XCTAssertEqual(cs?.outletTimeRemainingSeconds, 7200)
+        XCTAssertEqual(cs?.powerFeedTimeRemainingSeconds, 14400)
+        XCTAssertEqual(cs?.outletMaxTimerMinutes, 720)
+        XCTAssertEqual(cs?.chargePortLatch, .engaged)
+        XCTAssertEqual(cs?.chargePortColor, .green)
+        XCTAssertEqual(cs?.chargePortColdWeatherMode, false)
+        XCTAssertEqual(cs?.chargeCableUnlatched, false)
+        XCTAssertEqual(cs?.connectedCableType, .iec)
+        XCTAssertEqual(cs?.fastChargerType, .supercharger)
+        XCTAssertEqual(cs?.fastChargerBrand, .tesla)
+        XCTAssertEqual(cs?.fastChargerPresent, true)
+
+        let ps = cs?.powershare
+        XCTAssertNotNil(ps)
+        XCTAssertEqual(ps?.featureAllowed, true)
+        XCTAssertEqual(ps?.featureEnabled, true)
+        XCTAssertEqual(ps?.requestActive, true)
+        XCTAssertEqual(ps?.type, .home)
+        XCTAssertEqual(ps?.status, .active)
+        XCTAssertEqual(ps?.stopReason, .user)
+        XCTAssertEqual(ps?.instantaneousLoadKW ?? 0, Double(Float(4.2)), accuracy: 0.001)
+        XCTAssertEqual(ps?.vehicleEnergyLeftHours, 18)
+        XCTAssertEqual(ps?.socLimitPercent, 20)
+
+        XCTAssertEqual(cs?.homeLocation?.latitude ?? 0, Double(Float(37.4)), accuracy: 0.01)
+        XCTAssertEqual(cs?.homeLocation?.longitude ?? 0, Double(Float(-122.1)), accuracy: 0.01)
+        XCTAssertEqual(cs?.workLocation?.latitude ?? 0, Double(Float(37.5)), accuracy: 0.01)
+        XCTAssertEqual(cs?.workLocation?.longitude ?? 0, Double(Float(-122.0)), accuracy: 0.01)
+    }
+
     func testDriveStateShiftMapping() {
         var data = CarServer_VehicleData()
         var drive = CarServer_DriveState()
@@ -77,6 +267,56 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         let result = VehicleSnapshotMapper.mapDrive(CarServer_VehicleData())
         XCTAssertNil(result.shiftState)
         XCTAssertNil(result.speedMph)
+    }
+
+    func testDriveStateDepthMapping() {
+        var data = CarServer_VehicleData()
+        var drive = CarServer_DriveState()
+        drive.activeRouteDestination = "Tesla HQ"
+        drive.activeRouteMinutesToArrival = 12.5
+        drive.activeRouteMilesToArrival = 7.3
+        drive.activeRouteTrafficMinutesDelay = 2.0
+        drive.activeRouteEnergyAtArrival = 47.0
+        var coords = CarServer_LatLong()
+        coords.latitude = 37.4275
+        coords.longitude = -122.1697
+        drive.activeRouteCoordinates = coords
+        drive.lastRouteUpdate = 1_700_000_100
+        var lastTraffic = SwiftProtobuf.Google_Protobuf_Timestamp()
+        lastTraffic.seconds = 1_700_000_200
+        drive.lastTrafficUpdate = lastTraffic
+        var ts = SwiftProtobuf.Google_Protobuf_Timestamp()
+        ts.seconds = 1_700_000_300
+        drive.timestamp = ts
+        data.driveState = drive
+
+        let d = VehicleSnapshotMapper.map(data).drive
+        XCTAssertEqual(d?.activeRouteDestination, "Tesla HQ")
+        XCTAssertEqual(d?.activeRouteMinutesToArrival ?? 0, 12.5, accuracy: 0.001)
+        XCTAssertEqual(d?.activeRouteMilesToArrival ?? 0, 7.3, accuracy: 0.001)
+        XCTAssertEqual(d?.activeRouteTrafficMinutesDelay ?? 0, 2.0, accuracy: 0.001)
+        XCTAssertEqual(d?.activeRouteEnergyAtArrival ?? 0, 47.0, accuracy: 0.001)
+        XCTAssertEqual(d?.activeRouteCoordinates?.latitude ?? 0, 37.4275, accuracy: 0.001)
+        XCTAssertEqual(d?.activeRouteCoordinates?.longitude ?? 0, -122.1697, accuracy: 0.001)
+        XCTAssertEqual(d?.lastRouteUpdateSecondsSinceEpoch, 1_700_000_100)
+        XCTAssertEqual(d?.lastTrafficUpdateSecondsSinceEpoch, 1_700_000_200)
+        XCTAssertEqual(d?.timestampSecondsSinceEpoch, 1_700_000_300)
+    }
+
+    func testDriveStateUnsetFieldsAreNil() {
+        var data = CarServer_VehicleData()
+        data.driveState = CarServer_DriveState()
+        let d = VehicleSnapshotMapper.map(data).drive
+        XCTAssertNotNil(d)
+        XCTAssertNil(d?.activeRouteDestination)
+        XCTAssertNil(d?.activeRouteMinutesToArrival)
+        XCTAssertNil(d?.activeRouteMilesToArrival)
+        XCTAssertNil(d?.activeRouteTrafficMinutesDelay)
+        XCTAssertNil(d?.activeRouteEnergyAtArrival)
+        XCTAssertNil(d?.activeRouteCoordinates)
+        XCTAssertNil(d?.lastRouteUpdateSecondsSinceEpoch)
+        XCTAssertNil(d?.lastTrafficUpdateSecondsSinceEpoch)
+        XCTAssertNil(d?.timestampSecondsSinceEpoch)
     }
 
     // MARK: - ChargingStatus enum
@@ -206,12 +446,181 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         XCTAssertNil(VehicleSnapshotMapper.map(data).climate?.defrostOn)
     }
 
+    func testClimateStateUnsetFieldsAreNil() {
+        var data = CarServer_VehicleData()
+        data.climateState = CarServer_ClimateState()
+
+        let c = VehicleSnapshotMapper.map(data).climate
+        XCTAssertNotNil(c)
+        XCTAssertNil(c?.insideTempCelsius)
+        XCTAssertNil(c?.outsideTempCelsius)
+        XCTAssertNil(c?.driverTempSettingCelsius)
+        XCTAssertNil(c?.passengerTempSettingCelsius)
+        XCTAssertNil(c?.minAvailTempCelsius)
+        XCTAssertNil(c?.maxAvailTempCelsius)
+        XCTAssertNil(c?.fanStatus)
+        XCTAssertNil(c?.isClimateOn)
+        XCTAssertNil(c?.isAutoConditioningOn)
+        XCTAssertNil(c?.isPreconditioning)
+        XCTAssertNil(c?.hvacAutoRequest)
+        XCTAssertNil(c?.climateKeeperMode)
+        XCTAssertNil(c?.isFrontDefrosterOn)
+        XCTAssertNil(c?.isRearDefrosterOn)
+        XCTAssertNil(c?.defrostOn)
+        XCTAssertNil(c?.remoteHeaterControlEnabled)
+        XCTAssertNil(c?.bioweaponMode)
+        XCTAssertNil(c?.seatHeaterFrontLeft)
+        XCTAssertNil(c?.seatHeaterRearLeftBack)
+        XCTAssertNil(c?.seatHeaterThirdRowLeft)
+        XCTAssertNil(c?.autoSeatClimateLeft)
+        XCTAssertNil(c?.seatFanFrontLeft)
+        XCTAssertNil(c?.steeringWheelHeater)
+        XCTAssertNil(c?.steeringWheelHeatLevel)
+        XCTAssertNil(c?.wiperBladeHeater)
+        XCTAssertNil(c?.sideMirrorHeaters)
+        XCTAssertNil(c?.isBatteryHeaterOn)
+        XCTAssertNil(c?.isBatteryHeaterNoPower)
+        XCTAssertNil(c?.allowCabinOverheatProtection)
+        XCTAssertNil(c?.supportsFanOnlyCabinOverheatProtection)
+        XCTAssertNil(c?.cabinOverheatProtection)
+        XCTAssertNil(c?.cabinOverheatProtectionActivelyCooling)
+        XCTAssertNil(c?.copActivationTemperature)
+        XCTAssertNil(c?.copNotRunningReason)
+    }
+
+    func testClimateStateDepthMapping() {
+        var data = CarServer_VehicleData()
+        var climate = CarServer_ClimateState()
+        climate.minAvailTempCelsius = 15.0
+        climate.maxAvailTempCelsius = 28.0
+        climate.isAutoConditioningOn = true
+        climate.isPreconditioning = false
+        climate.hvacAutoRequest = .override
+        var keeper = CarServer_ClimateState.ClimateKeeperMode()
+        keeper.type = .dog(CarServer_Void())
+        climate.climateKeeperMode = keeper
+        climate.isFrontDefrosterOn = true
+        climate.isRearDefrosterOn = false
+        climate.remoteHeaterControlEnabled = true
+        climate.seatHeaterRearLeftBack = 1
+        climate.seatHeaterRearRightBack = 2
+        climate.seatHeaterThirdRowLeft = 3
+        climate.seatHeaterThirdRowRight = 0
+        climate.autoSeatClimateLeft = true
+        climate.autoSeatClimateRight = false
+        climate.seatFanFrontLeft = 2
+        climate.seatFanFrontRight = 3
+        climate.autoSteeringWheelHeat = true
+        climate.steeringWheelHeatLevel = .high
+        climate.wiperBladeHeater = false
+        climate.sideMirrorHeaters = true
+        climate.batteryHeaterNoPower = true
+        climate.allowCabinOverheatProtection = true
+        climate.supportsFanOnlyCabinOverheatProtection = false
+        climate.cabinOverheatProtection = .cabinOverheatProtectionFanOnly
+        climate.cabinOverheatProtectionActivelyCooling = true
+        climate.copActivationTemperature = .high
+        climate.copNotRunningReason = .energyConsumptionReached
+        data.climateState = climate
+
+        let c = VehicleSnapshotMapper.map(data).climate
+        XCTAssertEqual(c?.minAvailTempCelsius ?? 0, 15.0, accuracy: 0.01)
+        XCTAssertEqual(c?.maxAvailTempCelsius ?? 0, 28.0, accuracy: 0.01)
+        XCTAssertEqual(c?.isAutoConditioningOn, true)
+        XCTAssertEqual(c?.isPreconditioning, false)
+        XCTAssertEqual(c?.hvacAutoRequest, .override)
+        XCTAssertEqual(c?.climateKeeperMode, .dog)
+        XCTAssertEqual(c?.isFrontDefrosterOn, true)
+        XCTAssertEqual(c?.isRearDefrosterOn, false)
+        XCTAssertEqual(c?.remoteHeaterControlEnabled, true)
+        XCTAssertEqual(c?.seatHeaterRearLeftBack, .low)
+        XCTAssertEqual(c?.seatHeaterRearRightBack, .medium)
+        XCTAssertEqual(c?.seatHeaterThirdRowLeft, .high)
+        XCTAssertEqual(c?.seatHeaterThirdRowRight, .off)
+        XCTAssertEqual(c?.autoSeatClimateLeft, true)
+        XCTAssertEqual(c?.autoSeatClimateRight, false)
+        XCTAssertEqual(c?.seatFanFrontLeft, 2)
+        XCTAssertEqual(c?.seatFanFrontRight, 3)
+        XCTAssertEqual(c?.autoSteeringWheelHeat, true)
+        XCTAssertEqual(c?.steeringWheelHeatLevel, .high)
+        XCTAssertEqual(c?.wiperBladeHeater, false)
+        XCTAssertEqual(c?.sideMirrorHeaters, true)
+        XCTAssertEqual(c?.isBatteryHeaterNoPower, true)
+        XCTAssertEqual(c?.allowCabinOverheatProtection, true)
+        XCTAssertEqual(c?.supportsFanOnlyCabinOverheatProtection, false)
+        XCTAssertEqual(c?.cabinOverheatProtection, .fanOnly)
+        XCTAssertEqual(c?.cabinOverheatProtectionActivelyCooling, true)
+        XCTAssertEqual(c?.copActivationTemperature, .high)
+        XCTAssertEqual(c?.copNotRunningReason, .energyConsumptionReached)
+    }
+
     func testClimateSeatHeaterOutOfRangeReturnsNil() {
         var data = CarServer_VehicleData()
         var climate = CarServer_ClimateState()
         climate.seatHeaterLeft = 99 // not a valid SeatHeaterLevel raw value
         data.climateState = climate
         XCTAssertNil(VehicleSnapshotMapper.map(data).climate?.seatHeaterFrontLeft)
+    }
+
+    // MARK: - Location
+
+    func testLocationStateMappingPopulated() {
+        var data = CarServer_VehicleData()
+        var loc = CarServer_LocationState()
+        loc.latitude = 37.4275
+        loc.longitude = -122.1697
+        loc.heading = 270
+        loc.gpsAsOf = 1_700_000_000
+        loc.correctedLatitude = 37.4276
+        loc.correctedLongitude = -122.1698
+        loc.nativeLatitude = 37.4274
+        loc.nativeLongitude = -122.1696
+        loc.homelinkNearby = true
+        loc.locationName = "Home"
+        loc.geoLatitude = 37.4275
+        loc.geoLongitude = -122.1697
+        loc.geoHeading = 271.5
+        loc.geoElevation = 30.0
+        loc.geoAccuracy = 5.0
+        loc.estimatedGpsValid = true
+        data.locationState = loc
+
+        let snapshot = VehicleSnapshotMapper.map(data)
+        let location = snapshot.location
+        XCTAssertNotNil(location)
+        XCTAssertEqual(location?.latitude ?? 0, Double(Float(37.4275)), accuracy: 0.0001)
+        XCTAssertEqual(location?.longitude ?? 0, Double(Float(-122.1697)), accuracy: 0.0001)
+        XCTAssertEqual(location?.headingDegrees, 270)
+        XCTAssertEqual(location?.gpsAsOfSecondsSinceEpoch, 1_700_000_000)
+        XCTAssertEqual(location?.correctedLatitude ?? 0, Double(Float(37.4276)), accuracy: 0.0001)
+        XCTAssertEqual(location?.correctedLongitude ?? 0, Double(Float(-122.1698)), accuracy: 0.0001)
+        XCTAssertEqual(location?.nativeLatitude ?? 0, Double(Float(37.4274)), accuracy: 0.0001)
+        XCTAssertEqual(location?.nativeLongitude ?? 0, Double(Float(-122.1696)), accuracy: 0.0001)
+        XCTAssertEqual(location?.homelinkNearby, true)
+        XCTAssertEqual(location?.locationName, "Home")
+        XCTAssertEqual(location?.geoLatitude ?? 0, Double(Float(37.4275)), accuracy: 0.0001)
+        XCTAssertEqual(location?.geoLongitude ?? 0, Double(Float(-122.1697)), accuracy: 0.0001)
+        XCTAssertEqual(location?.geoHeadingDegrees ?? 0, Double(Float(271.5)), accuracy: 0.01)
+        XCTAssertEqual(location?.geoElevationMeters ?? 0, 30.0, accuracy: 0.001)
+        XCTAssertEqual(location?.geoAccuracyMeters ?? 0, 5.0, accuracy: 0.001)
+        XCTAssertEqual(location?.estimatedGpsValid, true)
+    }
+
+    func testLocationStateMissingFieldsAreNil() {
+        var data = CarServer_VehicleData()
+        // Set only latitude — other oneofs should map to nil.
+        var loc = CarServer_LocationState()
+        loc.latitude = 1.5
+        data.locationState = loc
+
+        let snapshot = VehicleSnapshotMapper.map(data)
+        let location = snapshot.location
+        XCTAssertNotNil(location)
+        XCTAssertEqual(location?.latitude ?? 0, Double(Float(1.5)), accuracy: 0.0001)
+        XCTAssertNil(location?.longitude)
+        XCTAssertNil(location?.headingDegrees)
+        XCTAssertNil(location?.gpsAsOfSecondsSinceEpoch)
+        XCTAssertNil(location?.homelinkNearby)
     }
 
     // MARK: - Closures
@@ -261,6 +670,60 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         XCTAssertEqual(c?.sentryModeActive, true)
         XCTAssertEqual(c?.valetMode, false)
         XCTAssertEqual(c?.isUserPresent, true)
+    }
+
+    func testClosuresStateDepthMapping() {
+        var data = CarServer_VehicleData()
+        var closures = CarServer_ClosuresState()
+        closures.tonneauState = .closurestateOpening
+        closures.tonneauPercentOpen = 42
+        closures.tonneauInMotion = true
+        var display = CarServer_ClosuresState.DisplayState()
+        display.type = .driving(CarServer_Void())
+        closures.centerDisplayState = display
+        closures.sentryModeAvailable = true
+        closures.remoteStart = true
+        closures.valetPinNeeded = false
+
+        var speedLimit = CarServer_SpeedLimitMode()
+        speedLimit.active = true
+        speedLimit.pinCodeSet = true
+        speedLimit.maxLimitMph = 90.0
+        speedLimit.minLimitMph = 50.0
+        speedLimit.currentLimitMph = 65.0
+        closures.speedLimitMode = speedLimit
+
+        data.closuresState = closures
+
+        let c = VehicleSnapshotMapper.map(data).closures
+        XCTAssertEqual(c?.tonneauState, .opening)
+        XCTAssertEqual(c?.tonneauPercentOpen, 42)
+        XCTAssertEqual(c?.tonneauInMotion, true)
+        XCTAssertEqual(c?.centerDisplayState, .driving)
+        XCTAssertEqual(c?.sentryModeAvailable, true)
+        XCTAssertEqual(c?.remoteStart, true)
+        XCTAssertEqual(c?.valetPinNeeded, false)
+        XCTAssertEqual(c?.speedLimit?.active, true)
+        XCTAssertEqual(c?.speedLimit?.pinCodeSet, true)
+        XCTAssertEqual(c?.speedLimit?.maxLimitMph ?? 0, 90.0, accuracy: 0.01)
+        XCTAssertEqual(c?.speedLimit?.minLimitMph ?? 0, 50.0, accuracy: 0.01)
+        XCTAssertEqual(c?.speedLimit?.currentLimitMph ?? 0, 65.0, accuracy: 0.01)
+    }
+
+    func testClosuresStateUnsetExtrasAreNil() {
+        var data = CarServer_VehicleData()
+        data.closuresState = CarServer_ClosuresState()
+
+        let c = VehicleSnapshotMapper.map(data).closures
+        XCTAssertNotNil(c)
+        XCTAssertNil(c?.tonneauState)
+        XCTAssertNil(c?.tonneauPercentOpen)
+        XCTAssertNil(c?.tonneauInMotion)
+        XCTAssertNil(c?.centerDisplayState)
+        XCTAssertNil(c?.sentryModeAvailable)
+        XCTAssertNil(c?.remoteStart)
+        XCTAssertNil(c?.valetPinNeeded)
+        XCTAssertNil(c?.speedLimit)
     }
 
     func testSunroofStateAllVariants() {
@@ -357,16 +820,83 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         media.nowPlayingArtist = "Daft Punk"
         media.nowPlayingTitle = "Around the World"
         media.audioVolume = 6.5
+        media.audioVolumeIncrement = 0.5
         media.audioVolumeMax = 11.0
         media.remoteControlEnabled = true
+        media.nowPlayingSource = .spotify
+        media.mediaPlaybackStatus = .playing
         data.mediaState = media
 
         let m = VehicleSnapshotMapper.map(data).media
         XCTAssertEqual(m?.nowPlayingArtist, "Daft Punk")
         XCTAssertEqual(m?.nowPlayingTitle, "Around the World")
         XCTAssertEqual(m?.audioVolume ?? 0, 6.5, accuracy: 0.01)
+        XCTAssertEqual(m?.audioVolumeIncrement ?? 0, 0.5, accuracy: 0.01)
         XCTAssertEqual(m?.audioVolumeMax ?? 0, 11.0, accuracy: 0.01)
         XCTAssertEqual(m?.remoteControlEnabled, true)
+        XCTAssertEqual(m?.nowPlayingSource, .spotify)
+        XCTAssertEqual(m?.playbackStatus, .playing)
+    }
+
+    func testMediaStateOmittedExtrasAreNil() {
+        var data = CarServer_VehicleData()
+        let media = CarServer_MediaState()
+        data.mediaState = media
+
+        let m = VehicleSnapshotMapper.map(data).media
+        XCTAssertNotNil(m)
+        XCTAssertNil(m?.audioVolumeIncrement)
+        XCTAssertNil(m?.nowPlayingSource)
+        XCTAssertNil(m?.playbackStatus)
+    }
+
+    func testMediaSourceAllVariants() {
+        let cases: [(CarServer_MediaSourceType, MediaState.MediaSource)] = [
+            (.none, .none),
+            (.am, .am),
+            (.fm, .fm),
+            (.xm, .xm),
+            (.slacker, .slacker),
+            (.localFiles, .localFiles),
+            (.iPod, .iPod),
+            (.bluetooth, .bluetooth),
+            (.auxIn, .auxIn),
+            (.dab, .dab),
+            (.rdio, .rdio),
+            (.spotify, .spotify),
+            (.usradio, .usRadio),
+            (.euradio, .euRadio),
+            (.mediaFile, .mediaFile),
+            (.tuneIn, .tuneIn),
+            (.stingray, .stingray),
+            (.siriusXm, .siriusXm),
+            (.tidal, .tidal),
+            (.qqmusic, .qqmusic),
+            (.qqmusic2, .qqmusic2),
+            (.ximalaya, .ximalaya),
+            (.onlineRadio, .onlineRadio),
+            (.onlineRadio2, .onlineRadio2),
+            (.netEaseMusic, .netEaseMusic),
+            (.browser, .browser),
+            (.theater, .theater),
+            (.game, .game),
+            (.tutorial, .tutorial),
+            (.toybox, .toybox),
+            (.recentsFavorites, .recentsFavorites),
+            (.homeApps, .homeApps),
+            (.search, .search),
+        ]
+        for (raw, expected) in cases {
+            var data = CarServer_VehicleData()
+            var media = CarServer_MediaState()
+            media.nowPlayingSource = raw
+            data.mediaState = media
+            XCTAssertEqual(
+                VehicleSnapshotMapper.map(data).media?.nowPlayingSource,
+                expected,
+                "raw \(raw) should map to \(expected)",
+            )
+        }
     }
 
     func testMediaDetailStateMapping() {
@@ -385,7 +915,7 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         XCTAssertEqual(d?.nowPlayingElapsedSeconds, 60)
         XCTAssertEqual(d?.nowPlayingAlbum, "Discovery")
         XCTAssertEqual(d?.nowPlayingStation, "KEXP")
-        XCTAssertEqual(d?.nowPlayingSource, "Spotify")
+        XCTAssertEqual(d?.nowPlayingSourceName, "Spotify")
         XCTAssertEqual(d?.a2dpSourceName, "iPhone")
     }
 
@@ -407,6 +937,42 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         XCTAssertEqual(u?.expectedDurationSeconds, 1800)
     }
 
+    func testSoftwareUpdateStateDepth() {
+        var data = CarServer_VehicleData()
+        var update = CarServer_SoftwareUpdateState()
+        var status = CarServer_SoftwareUpdateState.SoftwareUpdateStatus()
+        status.type = .scheduled(CarServer_Void())
+        update.status = status
+        update.scheduledTimeMs = 1_700_000_000_000
+        update.warningTimeRemainingMs = 60000
+        data.softwareUpdateState = update
+
+        let u = VehicleSnapshotMapper.map(data).softwareUpdate
+        XCTAssertEqual(u?.status, .scheduled)
+        XCTAssertEqual(u?.scheduledTimeMs, 1_700_000_000_000)
+        XCTAssertEqual(u?.warningTimeRemainingMs, 60000)
+    }
+
+    func testSoftwareUpdateStatusAllVariants() {
+        let cases: [(CarServer_SoftwareUpdateState.SoftwareUpdateStatus.OneOf_Type, SoftwareUpdateState.Status)] = [
+            (.unknown(CarServer_Void()), .unknown),
+            (.installing(CarServer_Void()), .installing),
+            (.scheduled(CarServer_Void()), .scheduled),
+            (.available(CarServer_Void()), .available),
+            (.downloadingWifiWait(CarServer_Void()), .downloadingWifiWait),
+            (.downloading(CarServer_Void()), .downloading),
+        ]
+        for (type, expected) in cases {
+            var data = CarServer_VehicleData()
+            var update = CarServer_SoftwareUpdateState()
+            var status = CarServer_SoftwareUpdateState.SoftwareUpdateStatus()
+            status.type = type
+            update.status = status
+            data.softwareUpdateState = update
+            XCTAssertEqual(VehicleSnapshotMapper.map(data).softwareUpdate?.status, expected, "type=\(type)")
+        }
+    }
+
     // MARK: - Parental controls
 
     func testParentalControlsMapping() {
@@ -419,6 +985,35 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         let result = VehicleSnapshotMapper.map(data).parentalControls
         XCTAssertEqual(result?.active, true)
         XCTAssertEqual(result?.pinSet, false)
+        XCTAssertNil(result?.settings)
+    }
+
+    func testParentalControlsSettingsMapping() {
+        var data = CarServer_VehicleData()
+        var pc = CarServer_ParentalControlsState()
+        var settings = CarServer_ParentalControlsSettings()
+        settings.speedLimitEnabled = true
+        settings.maxLimitMph = 90.0
+        settings.minLimitMph = 50.0
+        settings.currentLimitMph = 70.0
+        settings.chillAccelerationEnabled = true
+        settings.requireSafetySettingsEnabled = false
+        settings.curfewEnabled = true
+        settings.curfewStartTime = 22 * 3600
+        settings.curfewEndTime = 6 * 3600
+        pc.parentalControlsSettings = settings
+        data.parentalControlsState = pc
+
+        let s = VehicleSnapshotMapper.map(data).parentalControls?.settings
+        XCTAssertEqual(s?.speedLimitEnabled, true)
+        XCTAssertEqual(s?.maxLimitMph ?? 0, 90.0, accuracy: 0.01)
+        XCTAssertEqual(s?.minLimitMph ?? 0, 50.0, accuracy: 0.01)
+        XCTAssertEqual(s?.currentLimitMph ?? 0, 70.0, accuracy: 0.01)
+        XCTAssertEqual(s?.chillAccelerationEnabled, true)
+        XCTAssertEqual(s?.requireSafetySettingsEnabled, false)
+        XCTAssertEqual(s?.curfewEnabled, true)
+        XCTAssertEqual(s?.curfewStartTime, 22 * 3600)
+        XCTAssertEqual(s?.curfewEndTime, 6 * 3600)
     }
 
     // MARK: - Schedule state sentinels
@@ -430,5 +1025,131 @@ final class VehicleSnapshotMapperTests: XCTestCase {
         let snapshot = VehicleSnapshotMapper.map(data)
         XCTAssertNotNil(snapshot.chargeSchedule)
         XCTAssertNotNil(snapshot.preconditionSchedule)
+        XCTAssertEqual(snapshot.chargeSchedule?.schedules, [])
+        XCTAssertNil(snapshot.chargeSchedule?.pendingScheduleWindow)
+        XCTAssertNil(snapshot.chargeSchedule?.chargeBufferMinutes)
+        XCTAssertNil(snapshot.chargeSchedule?.maxScheduleCount)
+        XCTAssertNil(snapshot.chargeSchedule?.nextScheduleEnabled)
+        XCTAssertNil(snapshot.chargeSchedule?.showScheduleCompleteState)
+        XCTAssertNil(snapshot.chargeSchedule?.timestampSecondsSinceEpoch)
+        XCTAssertEqual(snapshot.preconditionSchedule?.schedules, [])
+        XCTAssertNil(snapshot.preconditionSchedule?.pendingScheduleWindow)
+        XCTAssertNil(snapshot.preconditionSchedule?.maxScheduleCount)
+        XCTAssertNil(snapshot.preconditionSchedule?.nextScheduleEnabled)
+        XCTAssertNil(snapshot.preconditionSchedule?.timestampSecondsSinceEpoch)
+    }
+
+    func testChargeScheduleStateFullMapping() {
+        var entry = CarServer_ChargeSchedule()
+        entry.id = 1_730_000_000
+        entry.name = "Weekday home"
+        entry.daysOfWeek = 0b0011_1110 // Mon–Fri
+        entry.startEnabled = true
+        entry.startTime = 22 * 60 // 22:00
+        entry.endEnabled = true
+        entry.endTime = 6 * 60 // 06:00
+        entry.oneTime = false
+        entry.enabled = true
+        entry.latitude = 37.4419
+        entry.longitude = -122.1430
+
+        var window = CarServer_ChargeSchedule()
+        window.id = 1_730_000_001
+        window.name = "Pending"
+        window.daysOfWeek = 0b0100_0000
+        window.startEnabled = true
+        window.startTime = 60
+        window.enabled = false
+
+        var state = CarServer_ChargeScheduleState()
+        state.chargeSchedules = [entry]
+        state.chargeScheduleWindow = window
+        state.chargeBuffer = 30
+        state.maxNumChargeSchedules = 50
+        state.nextSchedule = true
+        state.showScheduleCompleteState = false
+        var ts = SwiftProtobuf.Google_Protobuf_Timestamp()
+        ts.seconds = 1_730_000_500
+        state.timestamp = ts
+
+        var data = CarServer_VehicleData()
+        data.chargeScheduleState = state
+
+        let result = VehicleSnapshotMapper.map(data).chargeSchedule
+        XCTAssertEqual(result?.schedules.count, 1)
+        let mapped = result?.schedules.first
+        XCTAssertEqual(mapped?.id, 1_730_000_000)
+        XCTAssertEqual(mapped?.name, "Weekday home")
+        XCTAssertEqual(mapped?.daysOfWeek, 0b0011_1110)
+        XCTAssertEqual(mapped?.startEnabled, true)
+        XCTAssertEqual(mapped?.startTimeMinutes, 22 * 60)
+        XCTAssertEqual(mapped?.endEnabled, true)
+        XCTAssertEqual(mapped?.endTimeMinutes, 6 * 60)
+        XCTAssertEqual(mapped?.oneTime, false)
+        XCTAssertEqual(mapped?.enabled, true)
+        XCTAssertEqual(mapped?.latitude, 37.4419)
+        XCTAssertEqual(mapped?.longitude, -122.1430)
+
+        let pending = result?.pendingScheduleWindow
+        XCTAssertEqual(pending?.id, 1_730_000_001)
+        XCTAssertEqual(pending?.name, "Pending")
+        XCTAssertEqual(pending?.startTimeMinutes, 60)
+
+        XCTAssertEqual(result?.chargeBufferMinutes, 30)
+        XCTAssertEqual(result?.maxScheduleCount, 50)
+        XCTAssertEqual(result?.nextScheduleEnabled, true)
+        XCTAssertEqual(result?.showScheduleCompleteState, false)
+        XCTAssertEqual(result?.timestampSecondsSinceEpoch, 1_730_000_500)
+    }
+
+    func testPreconditionScheduleStateFullMapping() {
+        var entry = CarServer_PreconditionSchedule()
+        entry.id = 1_730_000_100
+        entry.name = "Morning warmup"
+        entry.daysOfWeek = 0b0011_1110
+        entry.preconditionTime = 7 * 60 + 30
+        entry.oneTime = false
+        entry.enabled = true
+        entry.latitude = 47.6062
+        entry.longitude = -122.3321
+
+        var window = CarServer_PreconditionSchedule()
+        window.id = 1_730_000_101
+        window.name = "Pending"
+        window.preconditionTime = 8 * 60
+        window.enabled = true
+
+        var state = CarServer_PreconditioningScheduleState()
+        state.preconditionSchedules = [entry]
+        state.preconditioningScheduleWindow = window
+        state.maxNumPreconditionSchedules = 25
+        state.nextSchedule = false
+        var ts = SwiftProtobuf.Google_Protobuf_Timestamp()
+        ts.seconds = 1_730_000_900
+        state.timestamp = ts
+
+        var data = CarServer_VehicleData()
+        data.preconditioningScheduleState = state
+
+        let result = VehicleSnapshotMapper.map(data).preconditionSchedule
+        XCTAssertEqual(result?.schedules.count, 1)
+        let mapped = result?.schedules.first
+        XCTAssertEqual(mapped?.id, 1_730_000_100)
+        XCTAssertEqual(mapped?.name, "Morning warmup")
+        XCTAssertEqual(mapped?.daysOfWeek, 0b0011_1110)
+        XCTAssertEqual(mapped?.preconditionTimeMinutes, 7 * 60 + 30)
+        XCTAssertEqual(mapped?.oneTime, false)
+        XCTAssertEqual(mapped?.enabled, true)
+        XCTAssertEqual(mapped?.latitude, 47.6062)
+        XCTAssertEqual(mapped?.longitude, -122.3321)
+
+        let pending = result?.pendingScheduleWindow
+        XCTAssertEqual(pending?.id, 1_730_000_101)
+        XCTAssertEqual(pending?.preconditionTimeMinutes, 8 * 60)
+        XCTAssertEqual(pending?.enabled, true)
+
+        XCTAssertEqual(result?.maxScheduleCount, 25)
+        XCTAssertEqual(result?.nextScheduleEnabled, false)
+        XCTAssertEqual(result?.timestampSecondsSinceEpoch, 1_730_000_900)
     }
 }

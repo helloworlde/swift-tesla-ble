@@ -15,8 +15,8 @@ import SwiftProtobuf
 public enum VehicleQuery: Sendable, Equatable {
     /// Lists every key registered in the VCSEC whitelist with slot metadata.
     ///
-    /// Yields ``VehicleQueryResult/keySummary(_:)`` wrapping the raw
-    /// `VCSEC_WhitelistInfo` protobuf.
+    /// Yields ``VehicleQueryResult/keySummary(_:)`` wrapping a
+    /// ``KeyWhitelistInfo``.
     case keySummary
 
     /// Returns detailed information for a single whitelist slot.
@@ -26,6 +26,27 @@ public enum VehicleQuery: Sendable, Equatable {
     ///
     /// - Parameter slot: Whitelist slot index as reported by ``keySummary``.
     case keyInfo(slot: UInt32)
+
+    /// Returns detailed information for the whitelist entry whose public
+    /// key matches the supplied SEC1 encoding.
+    ///
+    /// Yields ``VehicleQueryResult/keyInfo(_:)``.
+    ///
+    /// - Parameter publicKey: 65-byte uncompressed SEC1 encoding
+    ///   (`0x04 || X || Y`) of the P-256 public key.
+    case keyInfoByPublicKey(publicKey: Data)
+
+    /// Returns detailed information for the whitelist entry whose key
+    /// identifier matches the supplied SHA-1 prefix.
+    ///
+    /// The vehicle identifies enrolled keys by SHA-1 of their public key
+    /// (truncated to 4 bytes on the wire); use this when you have the
+    /// identifier from a prior `keySummary` rather than a full public
+    /// key. Yields ``VehicleQueryResult/keyInfo(_:)``.
+    ///
+    /// - Parameter publicKeySha1: SHA-1 hash of the public key (typically
+    ///   4 bytes, matching the truncation used in the whitelist summary).
+    case keyInfoByKeyID(publicKeySha1: Data)
 
     /// Returns VCSEC body-controller state: closures, lock status, user
     /// presence, and whether Infotainment is asleep.
@@ -39,26 +60,49 @@ public enum VehicleQuery: Sendable, Equatable {
     /// Returns nearby Supercharger sites as seen by the vehicle's navigation
     /// system. Dispatched on the Infotainment domain.
     ///
+    /// > Important: The vehicle's BLE response buffer is bounded. A reply
+    /// > that overflows it is rejected with `RESPONSE_MTU_EXCEEDED` and
+    /// > surfaces here as ``TeslaBLEError/commandRejected(code:reason:)``.
+    /// > Unlike ``TeslaVehicleClient/fetch(_:timeout:)`` this query is a
+    /// > single round trip — there is nothing the client can split. To stay
+    /// > safe over BLE, pass an explicit small `count` (e.g. 5–10) and keep
+    /// > `includeMetadata` off; passing `0` lets the vehicle pick a default
+    /// > that may not fit the BLE response.
+    ///
     /// - Parameters:
     ///   - includeMetadata: `true` to include site metadata such as stall
-    ///     count and amenities.
+    ///     count and amenities. Off by default to keep responses small.
     ///   - radiusMiles: Search radius in miles, or `0` to let the vehicle
     ///     pick a default.
     ///   - count: Maximum number of results, or `0` for the vehicle default.
+    ///     Prefer an explicit small value over BLE.
     case nearbyCharging(includeMetadata: Bool = false, radiusMiles: Int32 = 0, count: Int32 = 0)
+
+    /// Application-layer ping over the Infotainment domain. Useful as a
+    /// liveness probe and as a way to measure round-trip latency / clock
+    /// skew (the vehicle echoes its own clock back).
+    ///
+    /// Yields ``VehicleQueryResult/ping(_:)``.
+    ///
+    /// - Parameter id: Echoed back by the vehicle so multiple in-flight
+    ///   pings can be correlated.
+    case ping(id: Int32)
 }
 
-/// Typed result of a ``VehicleQuery``. Each case wraps the raw generated
-/// protobuf message so callers can project into their own types as needed.
+/// Typed result of a ``VehicleQuery``. Every case carries a Swift-native
+/// projection — generated protobuf types are kept inside the encoder /
+/// decoder and never surface in this enum.
 public enum VehicleQueryResult: Sendable {
     /// Result of ``VehicleQuery/keySummary``.
-    case keySummary(VCSEC_WhitelistInfo)
+    case keySummary(KeyWhitelistInfo)
     /// Result of ``VehicleQuery/keyInfo(slot:)``.
-    case keyInfo(VCSEC_WhitelistEntryInfo)
+    case keyInfo(KeyWhitelistEntry)
     /// Result of ``VehicleQuery/bodyControllerState``.
-    case bodyControllerState(VCSEC_VehicleStatus)
+    case bodyControllerState(BodyControllerState)
     /// Result of ``VehicleQuery/nearbyCharging(includeMetadata:radiusMiles:count:)``.
-    case nearbyCharging(CarServer_NearbyChargingSites)
+    case nearbyCharging(NearbyChargingSites)
+    /// Result of ``VehicleQuery/ping(id:)``.
+    case ping(PingResult)
 }
 
 /// Encodes a `VehicleQuery` into the `(domain, body)` pair used by
@@ -86,6 +130,24 @@ enum VehicleQueryEncoder {
             unsigned.subMessage = .informationRequest(req)
             return try (.vehicleSecurity, serialize(unsigned))
 
+        case let .keyInfoByPublicKey(publicKey):
+            var req = VCSEC_InformationRequest()
+            req.informationRequestType = .getWhitelistEntryInfo
+            req.key = .publicKey(publicKey)
+            var unsigned = VCSEC_UnsignedMessage()
+            unsigned.subMessage = .informationRequest(req)
+            return try (.vehicleSecurity, serialize(unsigned))
+
+        case let .keyInfoByKeyID(publicKeySha1):
+            var keyID = VCSEC_KeyIdentifier()
+            keyID.publicKeySha1 = publicKeySha1
+            var req = VCSEC_InformationRequest()
+            req.informationRequestType = .getWhitelistEntryInfo
+            req.key = .keyID(keyID)
+            var unsigned = VCSEC_UnsignedMessage()
+            unsigned.subMessage = .informationRequest(req)
+            return try (.vehicleSecurity, serialize(unsigned))
+
         case .bodyControllerState:
             var req = VCSEC_InformationRequest()
             req.informationRequestType = .getStatus
@@ -100,6 +162,15 @@ enum VehicleQueryEncoder {
             sub.count = count
             var vehicleAction = CarServer_VehicleAction()
             vehicleAction.vehicleActionMsg = .getNearbyChargingSites(sub)
+            var action = CarServer_Action()
+            action.vehicleAction = vehicleAction
+            return try (.infotainment, serialize(action))
+
+        case let .ping(id):
+            var sub = CarServer_Ping()
+            sub.pingID = id
+            var vehicleAction = CarServer_VehicleAction()
+            vehicleAction.vehicleActionMsg = .ping(sub)
             var action = CarServer_Action()
             action.vehicleAction = vehicleAction
             return try (.infotainment, serialize(action))
@@ -130,21 +201,21 @@ enum VehicleQueryDecoder {
             guard case let .whitelistInfo(info)? = message.subMessage else {
                 throw Error.unexpectedMessageType("expected whitelistInfo, got \(describe(message.subMessage))")
             }
-            return .keySummary(info)
+            return .keySummary(VCSECStatusMapper.map(info))
 
-        case .keyInfo:
+        case .keyInfo, .keyInfoByPublicKey, .keyInfoByKeyID:
             let message = try parseVCSEC(bytes)
             guard case let .whitelistEntryInfo(info)? = message.subMessage else {
                 throw Error.unexpectedMessageType("expected whitelistEntryInfo, got \(describe(message.subMessage))")
             }
-            return .keyInfo(info)
+            return .keyInfo(VCSECStatusMapper.map(info))
 
         case .bodyControllerState:
             let message = try parseVCSEC(bytes)
             guard case let .vehicleStatus(status)? = message.subMessage else {
                 throw Error.unexpectedMessageType("expected vehicleStatus, got \(describe(message.subMessage))")
             }
-            return .bodyControllerState(status)
+            return .bodyControllerState(VCSECStatusMapper.map(status))
 
         case .nearbyCharging:
             let response: CarServer_Response
@@ -156,7 +227,23 @@ enum VehicleQueryDecoder {
             guard case let .getNearbyChargingSites(sites)? = response.responseMsg else {
                 throw Error.unexpectedMessageType("expected getNearbyChargingSites in response")
             }
-            return .nearbyCharging(sites)
+            return .nearbyCharging(NearbyChargingMapper.map(sites))
+
+        case .ping:
+            let response: CarServer_Response
+            do {
+                response = try CarServer_Response(serializedBytes: bytes)
+            } catch {
+                throw Error.decodingFailed("CarServer_Response: \(error)")
+            }
+            guard case let .ping(pong)? = response.responseMsg else {
+                throw Error.unexpectedMessageType("expected ping in response")
+            }
+            return .ping(PingResult(
+                pingID: pong.pingID,
+                localTimestampSecondsSinceEpoch: pong.hasLocalTimestamp ? pong.localTimestamp.seconds : nil,
+                lastRemoteTimestampSecondsSinceEpoch: pong.hasLastRemoteTimestamp ? pong.lastRemoteTimestamp.seconds : nil,
+            ))
         }
     }
 

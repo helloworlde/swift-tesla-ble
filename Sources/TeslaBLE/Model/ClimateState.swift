@@ -1,48 +1,168 @@
 import Foundation
 
 /// Cabin climate, seat heater, and defrost status reported by the vehicle.
+///
+/// Mirrors `CarServer_ClimateState` from the upstream Go SDK. Every field is
+/// optional — an absent oneof stays `nil` rather than being defaulted to `0`.
 public struct ClimateState: Sendable, Equatable {
-    /// Interior cabin temperature in degrees Celsius. Nil if the vehicle did not report this field.
+    // MARK: Temperatures
+
+    /// Interior cabin temperature in degrees Celsius.
     public var insideTempCelsius: Double?
-    /// Exterior ambient temperature in degrees Celsius. Nil if the vehicle did not report this field.
+    /// Exterior ambient temperature in degrees Celsius.
     public var outsideTempCelsius: Double?
-    /// Driver-side climate setpoint in degrees Celsius. Nil if the vehicle did not report this field.
+    /// Driver-side climate setpoint in degrees Celsius.
     public var driverTempSettingCelsius: Double?
-    /// Passenger-side climate setpoint in degrees Celsius. Nil if the vehicle did not report this field.
+    /// Passenger-side climate setpoint in degrees Celsius.
     public var passengerTempSettingCelsius: Double?
-    /// HVAC fan level (raw vehicle scale, typically 0–7). Nil if the vehicle did not report this field.
+    /// Minimum settable cabin temperature in degrees Celsius.
+    public var minAvailTempCelsius: Double?
+    /// Maximum settable cabin temperature in degrees Celsius.
+    public var maxAvailTempCelsius: Double?
+
+    // MARK: HVAC core
+
+    /// HVAC fan level (raw vehicle scale, typically 0–7).
     public var fanStatus: Int?
-    /// Whether the HVAC system is currently running. Nil if the vehicle did not report this field.
+    /// True if the HVAC system is currently running.
     public var isClimateOn: Bool?
-    /// Front-left seat heater level. Nil if the vehicle did not report this field.
-    public var seatHeaterFrontLeft: SeatHeaterLevel?
-    /// Front-right seat heater level. Nil if the vehicle did not report this field.
-    public var seatHeaterFrontRight: SeatHeaterLevel?
-    /// Rear-left seat heater level. Nil if the vehicle did not report this field.
-    public var seatHeaterRearLeft: SeatHeaterLevel?
-    /// Rear-center seat heater level. Nil if the vehicle did not report this field.
-    public var seatHeaterRearCenter: SeatHeaterLevel?
-    /// Rear-right seat heater level. Nil if the vehicle did not report this field.
-    public var seatHeaterRearRight: SeatHeaterLevel?
-    /// Whether the steering wheel heater is on. Nil if the vehicle did not report this field.
-    public var steeringWheelHeater: Bool?
-    /// Whether the high-voltage battery heater is active. Nil if the vehicle did not report this field.
-    public var isBatteryHeaterOn: Bool?
-    /// Whether defrost mode is active (normal or max). Nil if the vehicle did not report this field.
+    /// True if Auto HVAC has the system in automatic-control mode.
+    public var isAutoConditioningOn: Bool?
+    /// True if a remote / scheduled preconditioning session is active.
+    public var isPreconditioning: Bool?
+    /// HVAC auto-request override. Indicates whether automatic control is
+    /// currently being overridden by a manual request.
+    public var hvacAutoRequest: HvacAutoRequest?
+    /// Climate-keeper mode (off / on / dog / party).
+    public var climateKeeperMode: ClimateKeeperMode?
+    /// Front windshield defroster on.
+    public var isFrontDefrosterOn: Bool?
+    /// Rear window defroster on.
+    public var isRearDefrosterOn: Bool?
+    /// Defrost-mode level (off / normal / max). Populated from `defrostMode`.
     public var defrostOn: Bool?
-    /// Whether Bioweapon Defense Mode is on. Nil if the vehicle did not report this field.
+    /// True if remote heater control is enabled (some markets gate this).
+    public var remoteHeaterControlEnabled: Bool?
+    /// Bioweapon Defense Mode active.
     public var bioweaponMode: Bool?
 
-    /// Seat heater intensity level.
+    // MARK: Heaters
+
+    /// Front-left seat heater level.
+    public var seatHeaterFrontLeft: SeatHeaterLevel?
+    /// Front-right seat heater level.
+    public var seatHeaterFrontRight: SeatHeaterLevel?
+    /// Rear-left seat heater level.
+    public var seatHeaterRearLeft: SeatHeaterLevel?
+    /// Rear-center seat heater level.
+    public var seatHeaterRearCenter: SeatHeaterLevel?
+    /// Rear-right seat heater level.
+    public var seatHeaterRearRight: SeatHeaterLevel?
+    /// Rear-left seat-back heater level.
+    public var seatHeaterRearLeftBack: SeatHeaterLevel?
+    /// Rear-right seat-back heater level.
+    public var seatHeaterRearRightBack: SeatHeaterLevel?
+    /// Third-row left seat heater level.
+    public var seatHeaterThirdRowLeft: SeatHeaterLevel?
+    /// Third-row right seat heater level.
+    public var seatHeaterThirdRowRight: SeatHeaterLevel?
+    /// Auto-seat-climate enabled on the front-left seat.
+    public var autoSeatClimateLeft: Bool?
+    /// Auto-seat-climate enabled on the front-right seat.
+    public var autoSeatClimateRight: Bool?
+    /// Front-left seat ventilation fan level.
+    public var seatFanFrontLeft: Int?
+    /// Front-right seat ventilation fan level.
+    public var seatFanFrontRight: Int?
+    /// Steering-wheel heater on (legacy boolean).
+    public var steeringWheelHeater: Bool?
+    /// Auto-steering-wheel-heat feature enabled.
+    public var autoSteeringWheelHeat: Bool?
+    /// Steering-wheel heater intensity setting.
+    public var steeringWheelHeatLevel: SteeringWheelHeatLevel?
+    /// Wiper-blade heater on (Cybertruck/Refresh).
+    public var wiperBladeHeater: Bool?
+    /// Side-mirror heaters on.
+    public var sideMirrorHeaters: Bool?
+    /// True if the high-voltage battery heater is active.
+    public var isBatteryHeaterOn: Bool?
+    /// True if the battery heater is unable to draw power right now.
+    public var isBatteryHeaterNoPower: Bool?
+
+    // MARK: Cabin Overheat Protection (COP)
+
+    /// User has enabled the COP feature in settings.
+    public var allowCabinOverheatProtection: Bool?
+    /// Vehicle hardware supports the fan-only COP variant.
+    public var supportsFanOnlyCabinOverheatProtection: Bool?
+    /// Current COP mode (off / on / fan-only).
+    public var cabinOverheatProtection: CabinOverheatProtectionMode?
+    /// True while COP is actively cooling the cabin.
+    public var cabinOverheatProtectionActivelyCooling: Bool?
+    /// Cabin temperature threshold at which COP activates.
+    public var copActivationTemperature: CopActivationTemperature?
+    /// Reason the COP system is not currently running.
+    public var copNotRunningReason: CopNotRunningReason?
+
+    // MARK: - Nested enums
+
+    /// Seat heater intensity level. Raw values match the proto enum:
+    /// 0 = off, 1 = low, 2 = medium, 3 = high.
     public enum SeatHeaterLevel: Int, Sendable, Equatable {
-        /// Heater off.
         case off = 0
-        /// Low heat.
         case low = 1
-        /// Medium heat.
         case medium = 2
-        /// High heat.
         case high = 3
+    }
+
+    /// Steering-wheel heater intensity setting.
+    public enum SteeringWheelHeatLevel: Sendable, Equatable {
+        case unknown
+        case off
+        case low
+        case high
+    }
+
+    /// HVAC auto-request override.
+    public enum HvacAutoRequest: Sendable, Equatable {
+        case on
+        case override
+    }
+
+    /// Climate-keeper mode.
+    public enum ClimateKeeperMode: Sendable, Equatable {
+        case unknown
+        case off
+        case on
+        case dog
+        case party
+    }
+
+    /// Cabin Overheat Protection (COP) state.
+    public enum CabinOverheatProtectionMode: Sendable, Equatable {
+        case off
+        case on
+        case fanOnly
+    }
+
+    /// COP activation temperature threshold (`unspecified` if the vehicle
+    /// did not report a value).
+    public enum CopActivationTemperature: Sendable, Equatable {
+        case unspecified
+        case low
+        case medium
+        case high
+    }
+
+    /// Why COP is currently not running.
+    public enum CopNotRunningReason: Sendable, Equatable {
+        case noReason
+        case userInteraction
+        case energyConsumptionReached
+        case timeout
+        case lowSolarLoad
+        case fault
+        case cabinBelowThreshold
     }
 
     public init(
@@ -50,32 +170,88 @@ public struct ClimateState: Sendable, Equatable {
         outsideTempCelsius: Double? = nil,
         driverTempSettingCelsius: Double? = nil,
         passengerTempSettingCelsius: Double? = nil,
+        minAvailTempCelsius: Double? = nil,
+        maxAvailTempCelsius: Double? = nil,
         fanStatus: Int? = nil,
         isClimateOn: Bool? = nil,
+        isAutoConditioningOn: Bool? = nil,
+        isPreconditioning: Bool? = nil,
+        hvacAutoRequest: HvacAutoRequest? = nil,
+        climateKeeperMode: ClimateKeeperMode? = nil,
+        isFrontDefrosterOn: Bool? = nil,
+        isRearDefrosterOn: Bool? = nil,
+        defrostOn: Bool? = nil,
+        remoteHeaterControlEnabled: Bool? = nil,
+        bioweaponMode: Bool? = nil,
         seatHeaterFrontLeft: SeatHeaterLevel? = nil,
         seatHeaterFrontRight: SeatHeaterLevel? = nil,
         seatHeaterRearLeft: SeatHeaterLevel? = nil,
         seatHeaterRearCenter: SeatHeaterLevel? = nil,
         seatHeaterRearRight: SeatHeaterLevel? = nil,
+        seatHeaterRearLeftBack: SeatHeaterLevel? = nil,
+        seatHeaterRearRightBack: SeatHeaterLevel? = nil,
+        seatHeaterThirdRowLeft: SeatHeaterLevel? = nil,
+        seatHeaterThirdRowRight: SeatHeaterLevel? = nil,
+        autoSeatClimateLeft: Bool? = nil,
+        autoSeatClimateRight: Bool? = nil,
+        seatFanFrontLeft: Int? = nil,
+        seatFanFrontRight: Int? = nil,
         steeringWheelHeater: Bool? = nil,
+        autoSteeringWheelHeat: Bool? = nil,
+        steeringWheelHeatLevel: SteeringWheelHeatLevel? = nil,
+        wiperBladeHeater: Bool? = nil,
+        sideMirrorHeaters: Bool? = nil,
         isBatteryHeaterOn: Bool? = nil,
-        defrostOn: Bool? = nil,
-        bioweaponMode: Bool? = nil,
+        isBatteryHeaterNoPower: Bool? = nil,
+        allowCabinOverheatProtection: Bool? = nil,
+        supportsFanOnlyCabinOverheatProtection: Bool? = nil,
+        cabinOverheatProtection: CabinOverheatProtectionMode? = nil,
+        cabinOverheatProtectionActivelyCooling: Bool? = nil,
+        copActivationTemperature: CopActivationTemperature? = nil,
+        copNotRunningReason: CopNotRunningReason? = nil,
     ) {
         self.insideTempCelsius = insideTempCelsius
         self.outsideTempCelsius = outsideTempCelsius
         self.driverTempSettingCelsius = driverTempSettingCelsius
         self.passengerTempSettingCelsius = passengerTempSettingCelsius
+        self.minAvailTempCelsius = minAvailTempCelsius
+        self.maxAvailTempCelsius = maxAvailTempCelsius
         self.fanStatus = fanStatus
         self.isClimateOn = isClimateOn
+        self.isAutoConditioningOn = isAutoConditioningOn
+        self.isPreconditioning = isPreconditioning
+        self.hvacAutoRequest = hvacAutoRequest
+        self.climateKeeperMode = climateKeeperMode
+        self.isFrontDefrosterOn = isFrontDefrosterOn
+        self.isRearDefrosterOn = isRearDefrosterOn
+        self.defrostOn = defrostOn
+        self.remoteHeaterControlEnabled = remoteHeaterControlEnabled
+        self.bioweaponMode = bioweaponMode
         self.seatHeaterFrontLeft = seatHeaterFrontLeft
         self.seatHeaterFrontRight = seatHeaterFrontRight
         self.seatHeaterRearLeft = seatHeaterRearLeft
         self.seatHeaterRearCenter = seatHeaterRearCenter
         self.seatHeaterRearRight = seatHeaterRearRight
+        self.seatHeaterRearLeftBack = seatHeaterRearLeftBack
+        self.seatHeaterRearRightBack = seatHeaterRearRightBack
+        self.seatHeaterThirdRowLeft = seatHeaterThirdRowLeft
+        self.seatHeaterThirdRowRight = seatHeaterThirdRowRight
+        self.autoSeatClimateLeft = autoSeatClimateLeft
+        self.autoSeatClimateRight = autoSeatClimateRight
+        self.seatFanFrontLeft = seatFanFrontLeft
+        self.seatFanFrontRight = seatFanFrontRight
         self.steeringWheelHeater = steeringWheelHeater
+        self.autoSteeringWheelHeat = autoSteeringWheelHeat
+        self.steeringWheelHeatLevel = steeringWheelHeatLevel
+        self.wiperBladeHeater = wiperBladeHeater
+        self.sideMirrorHeaters = sideMirrorHeaters
         self.isBatteryHeaterOn = isBatteryHeaterOn
-        self.defrostOn = defrostOn
-        self.bioweaponMode = bioweaponMode
+        self.isBatteryHeaterNoPower = isBatteryHeaterNoPower
+        self.allowCabinOverheatProtection = allowCabinOverheatProtection
+        self.supportsFanOnlyCabinOverheatProtection = supportsFanOnlyCabinOverheatProtection
+        self.cabinOverheatProtection = cabinOverheatProtection
+        self.cabinOverheatProtectionActivelyCooling = cabinOverheatProtectionActivelyCooling
+        self.copActivationTemperature = copActivationTemperature
+        self.copNotRunningReason = copNotRunningReason
     }
 }

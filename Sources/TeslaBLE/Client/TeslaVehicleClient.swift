@@ -256,8 +256,45 @@ public actor TeslaVehicleClient {
         _ query: StateQuery = .all,
         timeout: Duration = .seconds(10),
     ) async throws -> TeslaVehicleSnapshot {
-        let raw = try await fetchRaw(query: query, timeout: timeout)
-        return VehicleSnapshotMapper.map(raw)
+        let categories = Self.expandCategories(query)
+
+        // A single combined getVehicleData spanning many categories overflows
+        // the vehicle's BLE response buffer — real cars reject it with
+        // MESSAGEFAULT_ERROR_RESPONSE_MTU_EXCEEDED. So for multi-category
+        // queries, fetch each category in its own round trip and merge the
+        // protobufs. Single-category queries keep the original fast path.
+        guard categories.count > 1 else {
+            let raw = try await fetchRaw(query: query, timeout: timeout)
+            return VehicleSnapshotMapper.map(raw)
+        }
+
+        var merged = CarServer_VehicleData()
+        var succeeded = 0
+        var lastError: Swift.Error?
+        for category in categories {
+            do {
+                let raw = try await fetchRaw(query: .categories([category]), timeout: timeout)
+                try merged.merge(serializedBytes: raw.serializedData())
+                succeeded += 1
+            } catch {
+                lastError = error
+                logger?.log(.warning, category: "client", "fetch category \(category) failed: \(error)")
+            }
+        }
+        guard succeeded > 0 else {
+            throw lastError ?? TeslaBLEError.fetchFailed(underlying: "all \(categories.count) categories failed")
+        }
+        logger?.log(.info, category: "client", "fetched \(succeeded)/\(categories.count) categories")
+        return VehicleSnapshotMapper.map(merged)
+    }
+
+    /// Expands a ``StateQuery`` into the concrete list of categories to fetch.
+    private static func expandCategories(_ query: StateQuery) -> [StateCategory] {
+        switch query {
+        case .all: StateCategory.allCases
+        case .driveOnly: [.drive]
+        case let .categories(set): Array(set)
+        }
     }
 
     /// Low-latency fast path that fetches only the drive state subset.
@@ -358,31 +395,55 @@ public actor TeslaVehicleClient {
         let verifierName = Data(vin.utf8)
         let localPublicKey = localPrivateKey.publicKey.x963Representation
 
-        for domain in [UniversalMessage_Domain.vehicleSecurity, .infotainment] {
-            let negotiated: (sessionInfo: Signatures_SessionInfo, sessionKey: SessionKey)
-            do {
-                negotiated = try await dispatcher.negotiate(
-                    domain: domain,
-                    localPrivateKey: localPrivateKey,
-                    verifierName: verifierName,
-                    timeout: timeout,
-                )
-            } catch {
-                throw TeslaBLEError.handshakeFailed(
-                    underlying: "domain \(domain) negotiate: \(error)",
-                )
+        // Run VCSEC and Infotainment handshakes concurrently.  Each domain is
+        // an independent BLE round-trip (SessionInfoRequest → SessionInfo →
+        // ECDH), so there is no ordering dependency between them.  Parallel
+        // execution roughly halves the total handshake time (~2–5 s per domain
+        // in congested RF), shrinking the window during which a BLE layer
+        // disconnect can abort the whole connect attempt.
+        typealias NegotiatedDomain = (
+            domain: UniversalMessage_Domain,
+            session: VehicleSession
+        )
+        let results: [NegotiatedDomain] = try await withThrowingTaskGroup(
+            of: NegotiatedDomain.self,
+        ) { group in
+            for domain in [UniversalMessage_Domain.vehicleSecurity, .infotainment] {
+                group.addTask {
+                    let negotiated: (sessionInfo: Signatures_SessionInfo, sessionKey: SessionKey)
+                    do {
+                        negotiated = try await dispatcher.negotiate(
+                            domain: domain,
+                            localPrivateKey: localPrivateKey,
+                            verifierName: verifierName,
+                            timeout: timeout,
+                        )
+                    } catch {
+                        throw TeslaBLEError.handshakeFailed(
+                            underlying: "domain \(domain) negotiate: \(error)",
+                        )
+                    }
+                    let session = VehicleSession(
+                        domain: domain,
+                        verifierName: verifierName,
+                        localPublicKey: localPublicKey,
+                        sessionKey: negotiated.sessionKey,
+                        epoch: negotiated.sessionInfo.epoch,
+                        initialCounter: negotiated.sessionInfo.counter,
+                        clockTime: negotiated.sessionInfo.clockTime,
+                    )
+                    return (domain, session)
+                }
             }
+            var collected: [NegotiatedDomain] = []
+            for try await result in group {
+                collected.append(result)
+            }
+            return collected
+        }
 
-            let session = VehicleSession(
-                domain: domain,
-                verifierName: verifierName,
-                localPublicKey: localPublicKey,
-                sessionKey: negotiated.sessionKey,
-                epoch: negotiated.sessionInfo.epoch,
-                initialCounter: negotiated.sessionInfo.counter,
-                clockTime: negotiated.sessionInfo.clockTime,
-            )
-            await dispatcher.installSession(session, forDomain: domain)
+        for result in results {
+            await dispatcher.installSession(result.session, forDomain: result.domain)
         }
     }
 

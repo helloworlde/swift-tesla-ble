@@ -1,4 +1,5 @@
 import Foundation
+import SwiftProtobuf
 @testable import TeslaBLE
 import XCTest
 
@@ -345,6 +346,175 @@ final class CommandEncoderTests: XCTestCase {
     func testSecurityRemoveKeyRejectsShortKey() {
         let badKey = Data(repeating: 0x04, count: 33)
         XCTAssertThrowsError(try CommandEncoder.encode(.security(.removeKey(publicKey: badKey)))) { error in
+            guard case SecurityEncoder.Error.encodingFailed = error else { XCTFail(); return }
+        }
+    }
+
+    func testSecurityAddPermissionsEncodesPermissionChange() throws {
+        var publicKey = Data([0x04])
+        publicKey.append(Data(repeating: 0x33, count: 32))
+        publicKey.append(Data(repeating: 0x44, count: 32))
+
+        let (domain, body) = try CommandEncoder.encode(
+            .security(.addPermissions(publicKey: publicKey, role: .driver)),
+        )
+        XCTAssertEqual(domain, .vehicleSecurity)
+        let unsigned = try VCSEC_UnsignedMessage(serializedBytes: body)
+        guard case let .whitelistOperation(whitelist)? = unsigned.subMessage else { XCTFail(); return }
+        guard case let .addPermissionsToPublicKey(permChange)? = whitelist.subMessage else { XCTFail(); return }
+        XCTAssertEqual(permChange.key.publicKeyRaw, publicKey)
+        XCTAssertEqual(permChange.keyRole, .driver)
+        // metadataForKey is reserved for the initial addKey enrollment;
+        // permission edits never carry it.
+        XCTAssertFalse(whitelist.hasMetadataForKey)
+    }
+
+    func testSecurityRemovePermissionsEncodesPermissionChange() throws {
+        var publicKey = Data([0x04])
+        publicKey.append(Data(repeating: 0x55, count: 32))
+        publicKey.append(Data(repeating: 0x66, count: 32))
+
+        let (domain, body) = try CommandEncoder.encode(
+            .security(.removePermissions(publicKey: publicKey, role: .chargingManager)),
+        )
+        XCTAssertEqual(domain, .vehicleSecurity)
+        let unsigned = try VCSEC_UnsignedMessage(serializedBytes: body)
+        guard case let .whitelistOperation(whitelist)? = unsigned.subMessage else { XCTFail(); return }
+        guard case let .removePermissionsFromPublicKey(permChange)? = whitelist.subMessage else { XCTFail(); return }
+        XCTAssertEqual(permChange.key.publicKeyRaw, publicKey)
+        XCTAssertEqual(permChange.keyRole, .chargingManager)
+    }
+
+    func testSecurityUpdateKeyPermissionsEncodesPermissionChange() throws {
+        var publicKey = Data([0x04])
+        publicKey.append(Data(repeating: 0x77, count: 32))
+        publicKey.append(Data(repeating: 0x88, count: 32))
+
+        let (domain, body) = try CommandEncoder.encode(
+            .security(.updateKeyPermissions(publicKey: publicKey, role: .owner)),
+        )
+        XCTAssertEqual(domain, .vehicleSecurity)
+        let unsigned = try VCSEC_UnsignedMessage(serializedBytes: body)
+        guard case let .whitelistOperation(whitelist)? = unsigned.subMessage else { XCTFail(); return }
+        guard case let .updateKeyAndPermissions(permChange)? = whitelist.subMessage else { XCTFail(); return }
+        XCTAssertEqual(permChange.key.publicKeyRaw, publicKey)
+        XCTAssertEqual(permChange.keyRole, .owner)
+    }
+
+    func testSecurityReplaceKeyEncodesReplaceKey() throws {
+        var oldKey = Data([0x04])
+        oldKey.append(Data(repeating: 0xAA, count: 32))
+        oldKey.append(Data(repeating: 0xBB, count: 32))
+        var newKey = Data([0x04])
+        newKey.append(Data(repeating: 0xCC, count: 32))
+        newKey.append(Data(repeating: 0xDD, count: 32))
+
+        let (domain, body) = try CommandEncoder.encode(
+            .security(.replaceKey(
+                oldPublicKey: oldKey,
+                newPublicKey: newKey,
+                role: .driver,
+                impermanent: true,
+            )),
+        )
+        XCTAssertEqual(domain, .vehicleSecurity)
+        let unsigned = try VCSEC_UnsignedMessage(serializedBytes: body)
+        guard case let .whitelistOperation(whitelist)? = unsigned.subMessage else { XCTFail(); return }
+        guard case let .replaceKey(replace)? = whitelist.subMessage else { XCTFail(); return }
+        guard case let .publicKeyToReplace(pub)? = replace.keyToReplace else { XCTFail("expected publicKeyToReplace"); return }
+        XCTAssertEqual(pub.publicKeyRaw, oldKey)
+        XCTAssertEqual(replace.keyToAdd.publicKeyRaw, newKey)
+        XCTAssertEqual(replace.keyRole, .driver)
+        XCTAssertTrue(replace.impermanent)
+    }
+
+    func testSecurityReplaceKeyRejectsShortKeys() {
+        let badKey = Data(repeating: 0x04, count: 33)
+        var goodKey = Data([0x04])
+        goodKey.append(Data(repeating: 0xAA, count: 32))
+        goodKey.append(Data(repeating: 0xBB, count: 32))
+        XCTAssertThrowsError(try CommandEncoder.encode(
+            .security(.replaceKey(oldPublicKey: badKey, newPublicKey: goodKey, role: .owner)),
+        )) { error in
+            guard case SecurityEncoder.Error.encodingFailed = error else { XCTFail(); return }
+        }
+        XCTAssertThrowsError(try CommandEncoder.encode(
+            .security(.replaceKey(oldPublicKey: goodKey, newPublicKey: badKey, role: .owner)),
+        )) { error in
+            guard case SecurityEncoder.Error.encodingFailed = error else { XCTFail(); return }
+        }
+    }
+
+    func testSecurityAddImpermanentKey() throws {
+        var publicKey = Data([0x04])
+        publicKey.append(Data(repeating: 0xEE, count: 32))
+        publicKey.append(Data(repeating: 0xFF, count: 32))
+
+        let (domain, body) = try CommandEncoder.encode(
+            .security(.addImpermanentKey(
+                publicKey: publicKey,
+                role: .guest,
+                formFactor: .iosDevice,
+            )),
+        )
+        XCTAssertEqual(domain, .vehicleSecurity)
+        let unsigned = try VCSEC_UnsignedMessage(serializedBytes: body)
+        guard case let .whitelistOperation(whitelist)? = unsigned.subMessage else { XCTFail(); return }
+        guard case let .addImpermanentKey(permChange)? = whitelist.subMessage else { XCTFail(); return }
+        XCTAssertEqual(permChange.key.publicKeyRaw, publicKey)
+        XCTAssertEqual(permChange.keyRole, .guest)
+        XCTAssertTrue(whitelist.hasMetadataForKey)
+        XCTAssertEqual(whitelist.metadataForKey.keyFormFactor, .iosDevice)
+    }
+
+    func testSecurityAddImpermanentKeyAndRemoveExisting() throws {
+        var publicKey = Data([0x04])
+        publicKey.append(Data(repeating: 0x12, count: 32))
+        publicKey.append(Data(repeating: 0x34, count: 32))
+
+        let (_, body) = try CommandEncoder.encode(
+            .security(.addImpermanentKeyAndRemoveExisting(
+                publicKey: publicKey,
+                role: .driver,
+                formFactor: .androidDevice,
+            )),
+        )
+        let unsigned = try VCSEC_UnsignedMessage(serializedBytes: body)
+        guard case let .whitelistOperation(whitelist)? = unsigned.subMessage else { XCTFail(); return }
+        guard case let .addImpermanentKeyAndRemoveExisting(permChange)? = whitelist.subMessage else { XCTFail(); return }
+        XCTAssertEqual(permChange.key.publicKeyRaw, publicKey)
+        XCTAssertEqual(permChange.keyRole, .driver)
+        XCTAssertEqual(whitelist.metadataForKey.keyFormFactor, .androidDevice)
+    }
+
+    func testSecurityImpermanentKeyRejectsShortKey() {
+        let badKey = Data(repeating: 0x04, count: 33)
+        XCTAssertThrowsError(try CommandEncoder.encode(
+            .security(.addImpermanentKey(publicKey: badKey, role: .driver, formFactor: .nfcCard)),
+        )) { error in
+            guard case SecurityEncoder.Error.encodingFailed = error else { XCTFail(); return }
+        }
+    }
+
+    func testSecurityRemoveAllImpermanentKeys() throws {
+        let (domain, body) = try CommandEncoder.encode(.security(.removeAllImpermanentKeys))
+        XCTAssertEqual(domain, .vehicleSecurity)
+        let unsigned = try VCSEC_UnsignedMessage(serializedBytes: body)
+        guard case let .whitelistOperation(whitelist)? = unsigned.subMessage else { XCTFail(); return }
+        guard case let .removeAllImpermanentKeys(flag)? = whitelist.subMessage else { XCTFail(); return }
+        XCTAssertTrue(flag)
+    }
+
+    func testSecurityPermissionChangeRejectsShortKey() {
+        let badKey = Data(repeating: 0x04, count: 33)
+        XCTAssertThrowsError(
+            try CommandEncoder.encode(.security(.addPermissions(publicKey: badKey, role: .owner))),
+        ) { error in
+            guard case SecurityEncoder.Error.encodingFailed = error else { XCTFail(); return }
+        }
+        XCTAssertThrowsError(
+            try CommandEncoder.encode(.security(.removePermissions(publicKey: badKey, role: .owner))),
+        ) { error in
             guard case SecurityEncoder.Error.encodingFailed = error else { XCTFail(); return }
         }
     }
@@ -843,12 +1013,71 @@ final class CommandEncoderTests: XCTestCase {
         }
     }
 
+    func testQueryKeyInfoByPublicKeyEncoding() throws {
+        var publicKey = Data([0x04])
+        publicKey.append(Data(repeating: 0xA1, count: 32))
+        publicKey.append(Data(repeating: 0xB2, count: 32))
+
+        let (domain, body) = try VehicleQueryEncoder.encode(.keyInfoByPublicKey(publicKey: publicKey))
+        XCTAssertEqual(domain, .vehicleSecurity)
+        let unsigned = try VCSEC_UnsignedMessage(serializedBytes: body)
+        guard case let .informationRequest(req)? = unsigned.subMessage else { XCTFail(); return }
+        XCTAssertEqual(req.informationRequestType, .getWhitelistEntryInfo)
+        guard case let .publicKey(pk)? = req.key else {
+            XCTFail("expected publicKey arm"); return
+        }
+        XCTAssertEqual(pk, publicKey)
+    }
+
+    func testQueryKeyInfoByKeyIDEncoding() throws {
+        let sha1 = Data([0xDE, 0xAD, 0xBE, 0xEF])
+        let (domain, body) = try VehicleQueryEncoder.encode(.keyInfoByKeyID(publicKeySha1: sha1))
+        XCTAssertEqual(domain, .vehicleSecurity)
+        let unsigned = try VCSEC_UnsignedMessage(serializedBytes: body)
+        guard case let .informationRequest(req)? = unsigned.subMessage else { XCTFail(); return }
+        XCTAssertEqual(req.informationRequestType, .getWhitelistEntryInfo)
+        guard case let .keyID(kid)? = req.key else {
+            XCTFail("expected keyID arm"); return
+        }
+        XCTAssertEqual(kid.publicKeySha1, sha1)
+    }
+
     func testQueryBodyControllerStateEncoding() throws {
         let (domain, body) = try VehicleQueryEncoder.encode(.bodyControllerState)
         XCTAssertEqual(domain, .vehicleSecurity)
         let unsigned = try VCSEC_UnsignedMessage(serializedBytes: body)
         guard case let .informationRequest(req)? = unsigned.subMessage else { XCTFail(); return }
         XCTAssertEqual(req.informationRequestType, .getStatus)
+    }
+
+    func testQueryPingEncoding() throws {
+        let (domain, body) = try VehicleQueryEncoder.encode(.ping(id: 42))
+        XCTAssertEqual(domain, .infotainment)
+        let action = try CarServer_Action(serializedBytes: body)
+        guard case let .ping(sub)? = action.vehicleAction.vehicleActionMsg else { XCTFail(); return }
+        XCTAssertEqual(sub.pingID, 42)
+    }
+
+    func testQueryPingDecoding() throws {
+        var pong = CarServer_Ping()
+        pong.pingID = 99
+        var localTs = SwiftProtobuf.Google_Protobuf_Timestamp()
+        localTs.seconds = 1_730_001_000
+        pong.localTimestamp = localTs
+        var lastRemote = SwiftProtobuf.Google_Protobuf_Timestamp()
+        lastRemote.seconds = 1_730_000_500
+        pong.lastRemoteTimestamp = lastRemote
+        var response = CarServer_Response()
+        response.responseMsg = .ping(pong)
+        let bytes = try response.serializedData()
+
+        let result = try VehicleQueryDecoder.decode(.ping(id: 99), from: bytes)
+        guard case let .ping(ping) = result else {
+            XCTFail("expected .ping result"); return
+        }
+        XCTAssertEqual(ping.pingID, 99)
+        XCTAssertEqual(ping.localTimestampSecondsSinceEpoch, 1_730_001_000)
+        XCTAssertEqual(ping.lastRemoteTimestampSecondsSinceEpoch, 1_730_000_500)
     }
 
     func testQueryNearbyChargingEncoding() throws {
@@ -890,7 +1119,7 @@ final class CommandEncoderTests: XCTestCase {
         guard case let .bodyControllerState(decoded) = result else {
             XCTFail("expected .bodyControllerState"); return
         }
-        XCTAssertEqual(decoded.vehicleLockState, .vehiclelockstateLocked)
+        XCTAssertEqual(decoded.lockState, .locked)
     }
 
     func testQueryDecodeRejectsWrongSubMessage() {

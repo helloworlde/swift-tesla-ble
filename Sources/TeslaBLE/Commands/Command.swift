@@ -126,33 +126,97 @@ public enum Command: Sendable, Equatable {
         ///   - formFactor: Form factor metadata the vehicle displays in its
         ///     key-management UI.
         case addKey(publicKey: Data, role: KeyRole, formFactor: KeyFormFactor)
-    }
 
-    /// Role assigned to a newly-added key.
-    ///
-    /// Only the two roles relevant to personal BLE pairing are exposed.
-    /// Fleet-API roles such as fleet manager or vehicle monitor are
-    /// intentionally omitted; this package targets personal BLE use.
-    public enum KeyRole: Sendable, Equatable {
-        /// Full control, including the ability to add and remove other keys.
-        case owner
-        /// Can drive the vehicle but cannot manage other keys.
-        case driver
-    }
+        /// Grants a role to a key already present in the VCSEC whitelist.
+        ///
+        /// Mirrors `VCSEC_WhitelistOperation.addPermissionsToPublicKey`. The
+        /// vehicle uses role assignments (owner, driver, charging-manager,
+        /// …) as its permission model — there is no finer-grained permission
+        /// flag set in the protocol.
+        ///
+        /// - Parameters:
+        ///   - publicKey: 65-byte uncompressed SEC1 encoding of the target
+        ///     key, which must already be whitelisted.
+        ///   - role: Role to grant.
+        case addPermissions(publicKey: Data, role: KeyRole)
 
-    /// Form-factor metadata attached to a key, shown by the vehicle in its
-    /// key-management UI.
-    public enum KeyFormFactor: Sendable, Equatable {
-        /// Form factor not reported.
-        case unknown
-        /// Tesla NFC key card.
-        case nfcCard
-        /// iOS device running the Tesla or a third-party app.
-        case iosDevice
-        /// Android device running the Tesla or a third-party app.
-        case androidDevice
-        /// Cloud-managed key.
-        case cloudKey
+        /// Revokes a role from a key already present in the VCSEC whitelist.
+        ///
+        /// Mirrors `VCSEC_WhitelistOperation.removePermissionsFromPublicKey`.
+        ///
+        /// - Parameters:
+        ///   - publicKey: 65-byte uncompressed SEC1 encoding of the target
+        ///     key.
+        ///   - role: Role to revoke.
+        case removePermissions(publicKey: Data, role: KeyRole)
+
+        /// Replaces the public key in a whitelist slot, keeping the slot
+        /// occupied. Useful when rotating a key without going through a
+        /// remove + re-add cycle.
+        ///
+        /// Mirrors `VCSEC_WhitelistOperation.replaceKey`. The new key
+        /// inherits the role explicitly given here; impermanent placement
+        /// (auto-expire) is opt-in via `impermanent`.
+        ///
+        /// - Parameters:
+        ///   - oldPublicKey: 65-byte uncompressed SEC1 encoding of the key
+        ///     currently in the slot.
+        ///   - newPublicKey: 65-byte uncompressed SEC1 encoding of the
+        ///     replacement key.
+        ///   - role: Role to assign to the replacement key.
+        ///   - impermanent: When `true` the replacement key is added as an
+        ///     impermanent (temporary / guest) key.
+        case replaceKey(
+            oldPublicKey: Data,
+            newPublicKey: Data,
+            role: KeyRole,
+            impermanent: Bool = false,
+        )
+
+        /// Replaces the role assigned to a key already in the VCSEC
+        /// whitelist with the given one.
+        ///
+        /// Mirrors `VCSEC_WhitelistOperation.updateKeyAndPermissions`. Use
+        /// this when promoting a driver to owner, demoting an owner to a
+        /// charging manager, etc., without going through a remove + re-add.
+        ///
+        /// - Parameters:
+        ///   - publicKey: 65-byte uncompressed SEC1 encoding of the target
+        ///     key.
+        ///   - role: New role for the key. Replaces any previously-set role.
+        case updateKeyPermissions(publicKey: Data, role: KeyRole)
+
+        /// Adds a temporary (impermanent) key to the VCSEC whitelist that
+        /// the vehicle is allowed to evict on its own — typically for guest
+        /// or service flows.
+        ///
+        /// Mirrors `VCSEC_WhitelistOperation.addImpermanentKey`. Like
+        /// ``addKey(publicKey:role:formFactor:)`` this targets VCSEC, but it
+        /// flows through the signed transport because impermanent additions
+        /// happen after pairing.
+        ///
+        /// - Parameters:
+        ///   - publicKey: 65-byte uncompressed SEC1 encoding of the key.
+        ///   - role: Role to grant.
+        ///   - formFactor: Form factor for the in-car UI.
+        case addImpermanentKey(publicKey: Data, role: KeyRole, formFactor: KeyFormFactor)
+
+        /// Same as ``addImpermanentKey(publicKey:role:formFactor:)`` but
+        /// instructs the vehicle to drop any previously-installed
+        /// impermanent keys before adding this one.
+        ///
+        /// Mirrors `VCSEC_WhitelistOperation.addImpermanentKeyAndRemoveExisting`.
+        case addImpermanentKeyAndRemoveExisting(
+            publicKey: Data,
+            role: KeyRole,
+            formFactor: KeyFormFactor,
+        )
+
+        /// Removes every impermanent key from the VCSEC whitelist.
+        ///
+        /// Mirrors `VCSEC_WhitelistOperation.removeAllImpermanentKeys`.
+        /// Permanent keys are untouched.
+        case removeAllImpermanentKeys
     }
 
     // MARK: - Charge
