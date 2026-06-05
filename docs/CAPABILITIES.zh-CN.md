@@ -235,6 +235,7 @@ public enum StateQuery {
 | `chargeLimitMaxPercent` | `Int?` | 允许的最高上限（%） |
 | `oneTimeChargeLimitPercent` | `Int?` | 一次性高 SOC 上限（如行前充满）（%） |
 | `chargeLimitReason` | `ChargeLimitReason?` | 限充原因：`unknown / none / evse / batteryTempLow / highSoc / cabin` |
+| `maxRangeChargeCounter` | `Int?` | 充至满程的次数计数（BMS 用于排程电芯均衡） |
 
 ##### 充电口
 
@@ -265,8 +266,11 @@ public enum StateQuery {
 | `scheduledChargingStartTimeMinutes` | `UInt32?` | 计划开始时间，按本地午夜偏移（分钟） |
 | `scheduledChargingStartTimeAppMinutes` | `Int?` | App 提供的计划开始时间，午夜偏移（分钟） |
 | `scheduledDepartureTimeMinutes` | `UInt32?` | 计划出发时间，午夜偏移（分钟） |
+| `scheduledDepartureTimeSecondsSinceEpoch` | `Int64?` | 计划出发的绝对时刻（Unix 秒），区别于上面的午夜偏移分钟值 |
 | `offPeakHoursEndTimeMinutes` | `UInt32?` | 错峰时段结束时间，午夜偏移（分钟） |
 | `preconditioningEnabled` | `Bool?` | 出发预热已启用 |
+| `preconditioningTimes` | `ChargingTimesSelection?` | 当前预热窗口适用的日期模式：`allWeek / weekdays` |
+| `offPeakChargingTimes` | `ChargingTimesSelection?` | 当前错峰充电窗口适用的日期模式：`allWeek / weekdays` |
 
 ##### 充电使能 / 托管充电
 
@@ -277,6 +281,20 @@ public enum StateQuery {
 | `managedChargingActive` | `Bool?` | Tesla 托管充电正在调度 |
 | `managedChargingUserCanceled` | `Bool?` | 用户已取消本次托管 |
 | `managedChargingStartTimeSecondsSinceEpoch` | `UInt64?` | 托管充电开始时间（Unix 秒） |
+| `managedChargingState` | `ManagedChargingState?` | 托管充电详情子结构（光伏充电会话 / 网关 DIN / Tesla Electric），见下表 |
+
+##### 托管充电子状态 (`managedChargingState: ManagedChargingState?`)
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `chargeOnSolarState` | `ChargeOnSolarState?` | 光伏充电会话状态（见下）|
+| `chargeOnSolarGatewayDin` | `String?` | 调度本次光伏充电的能源网关 DIN |
+| `teslaElectricAssetId` | `String?` | 关联的 Tesla Electric 资产 ID |
+| `minutesToLowerLimit` | `Int?` | 托管服务将下调充电上限前的剩余分钟数 |
+
+`ChargeOnSolarState` 为枚举：`notAllowed`（不满足条件，如不在托管站点）/ `noChargeRecommended(reason:)`（站控建议不充电，附原因）/ `chargingOnExcessSolar`（正按余量光伏功率充电）/ `chargingOnAnything`（任意电源满功率充电）/ `userDisabled`（用户已关闭）/ `waitingForServer`（等待站控首个响应）/ `error`（多次错误后停止跟随）/ `userStopped`（用户按下停止充电）。
+
+`noChargeRecommended` 携带的 `ChargeOnSolarNoChargeReason` 为：`invalid / powerwallChargePriority`（Powerwall 优先）/ `insufficientSolar`（光伏不足）/ `gridExportPriority`（优先并网售电）/ `alternateVehicleChargePriority`（同站点另一车辆优先）。
 
 ##### 车辆放电插座（Cybertruck V2H/V2L）
 
@@ -323,6 +341,8 @@ public enum StateQuery {
 | `passengerTempSettingCelsius` | `Double?` | 副驾设定温度（℃） |
 | `minAvailTempCelsius` | `Double?` | 可设最低温（℃） |
 | `maxAvailTempCelsius` | `Double?` | 可设最高温（℃） |
+| `leftTempDirection` | `Int?` | 左温区出风方向设定（车端原始值） |
+| `rightTempDirection` | `Int?` | 右温区出风方向设定（车端原始值） |
 
 ##### HVAC 主开关
 
@@ -387,6 +407,7 @@ public enum StateQuery {
 |---|---|---|
 | `shiftState` | `ShiftState?` | 档位：`park / reverse / neutral / drive` |
 | `speedMph` | `Double?` | 当前对地车速（mph） |
+| `speedMphInteger` | `Int?` | 旧版整数车速（proto `speed`，mph）；优先用 `speedMph`（含 `speed_float` 小数） |
 | `powerKW` | `Int?` | 瞬时驱动功率（kW，回收为负） |
 | `odometerHundredthsMile` | `Int?` | 总里程（**1/100 mile**，除以 100 得到 mile） |
 | `activeRouteDestination` | `String?` | 导航目的地名称（若有） |
@@ -549,6 +570,7 @@ public enum StateQuery {
 |---|---|---|
 | `pressureBar` | `Double?` | 实测胎压（bar） |
 | `hasWarning` | `Bool?` | 该轮存在 TPMS 软告警或硬告警 |
+| `lastSeenSecondsSinceEpoch` | `Int64?` | 该轮上次测得胎压的时间（Unix 秒） |
 
 #### 3.1.9 媒体摘要 (`.media` → `snapshot.media: MediaState`)
 
