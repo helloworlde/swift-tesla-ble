@@ -6,6 +6,10 @@ public struct DriveState: Sendable, Equatable {
     public var shiftState: ShiftState?
     /// Current ground speed in miles per hour. Nil if the vehicle did not report this field.
     public var speedMph: Double?
+    /// Legacy integer ground speed in miles per hour (proto `speed`). Prefer
+    /// ``speedMph``, which carries the fractional `speed_float` value when
+    /// present. Nil if the vehicle did not report this field.
+    public var speedMphInteger: Int?
     /// Instantaneous drivetrain power in kilowatts (negative while regenerating). Nil if the vehicle did not report this field.
     public var powerKW: Int?
     /// Odometer reading in hundredths of a mile (divide by 100 to get miles). Nil if the vehicle did not report this field.
@@ -53,6 +57,7 @@ public struct DriveState: Sendable, Equatable {
     public init(
         shiftState: ShiftState? = nil,
         speedMph: Double? = nil,
+        speedMphInteger: Int? = nil,
         powerKW: Int? = nil,
         odometerHundredthsMile: Int? = nil,
         activeRouteDestination: String? = nil,
@@ -67,6 +72,7 @@ public struct DriveState: Sendable, Equatable {
     ) {
         self.shiftState = shiftState
         self.speedMph = speedMph
+        self.speedMphInteger = speedMphInteger
         self.powerKW = powerKW
         self.odometerHundredthsMile = odometerHundredthsMile
         self.activeRouteDestination = activeRouteDestination

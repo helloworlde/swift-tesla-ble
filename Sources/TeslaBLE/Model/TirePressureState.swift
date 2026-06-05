@@ -8,10 +8,18 @@ public struct TirePressureState: Sendable, Equatable {
         public var pressureBar: Double?
         /// `true` if either a soft or hard TPMS warning is active for this wheel. Nil if the vehicle did not report this field.
         public var hasWarning: Bool?
+        /// When this wheel's pressure was last measured (seconds since the Unix
+        /// epoch). Nil if the vehicle did not report this field.
+        public var lastSeenSecondsSinceEpoch: Int64?
 
-        public init(pressureBar: Double? = nil, hasWarning: Bool? = nil) {
+        public init(
+            pressureBar: Double? = nil,
+            hasWarning: Bool? = nil,
+            lastSeenSecondsSinceEpoch: Int64? = nil,
+        ) {
             self.pressureBar = pressureBar
             self.hasWarning = hasWarning
+            self.lastSeenSecondsSinceEpoch = lastSeenSecondsSinceEpoch
         }
     }
 

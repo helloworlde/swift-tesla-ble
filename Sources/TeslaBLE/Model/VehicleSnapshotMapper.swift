@@ -130,7 +130,81 @@ enum VehicleSnapshotMapper {
             powershare: powershare,
             homeLocation: pb.optionalHomeLocation != nil ? mapLatLong(pb.homeLocation) : nil,
             workLocation: pb.optionalWorkLocation != nil ? mapLatLong(pb.workLocation) : nil,
+            maxRangeChargeCounter: pb.optionalMaxRangeChargeCounter != nil
+                ? Int(pb.maxRangeChargeCounter) : nil,
+            scheduledDepartureTimeSecondsSinceEpoch: pb.hasScheduledDepartureTime
+                ? pb.scheduledDepartureTime.seconds : nil,
+            preconditioningTimes: pb.hasPreconditioningTimes
+                ? mapPreconditioningTimes(pb.preconditioningTimes) : nil,
+            offPeakChargingTimes: pb.hasOffPeakChargingTimes
+                ? mapOffPeakChargingTimes(pb.offPeakChargingTimes) : nil,
+            managedChargingState: pb.hasManagedChargingState
+                ? mapManagedChargingState(pb.managedChargingState) : nil,
         )
+    }
+
+    private static func mapPreconditioningTimes(
+        _ pb: CarServer_PreconditioningTimes
+    ) -> ChargeState.ChargingTimesSelection? {
+        switch pb.times {
+        case .allWeek: return .allWeek
+        case .weekdays: return .weekdays
+        case nil: return nil
+        }
+    }
+
+    private static func mapOffPeakChargingTimes(
+        _ pb: CarServer_OffPeakChargingTimes
+    ) -> ChargeState.ChargingTimesSelection? {
+        switch pb.times {
+        case .allWeek: return .allWeek
+        case .weekdays: return .weekdays
+        case nil: return nil
+        }
+    }
+
+    private static func mapManagedChargingState(
+        _ pb: CarServer_ManagedChargingState
+    ) -> ManagedChargingState {
+        ManagedChargingState(
+            chargeOnSolarState: pb.hasChargeOnSolarState
+                ? mapChargeOnSolarState(pb.chargeOnSolarState) : nil,
+            chargeOnSolarGatewayDin: pb.optionalChargeOnSolarGatewayDin != nil
+                ? pb.chargeOnSolarGatewayDin : nil,
+            teslaElectricAssetId: pb.optionalTeslaElectricAssetID != nil
+                ? pb.teslaElectricAssetID : nil,
+            minutesToLowerLimit: pb.optionalMinutesToLowerLimit != nil
+                ? Int(pb.minutesToLowerLimit) : nil,
+        )
+    }
+
+    private static func mapChargeOnSolarState(
+        _ pb: CarServer_ChargeOnSolarState
+    ) -> ChargeOnSolarState? {
+        switch pb.state {
+        case .notAllowed: return .notAllowed
+        case let .noChargeRecommended(value):
+            return .noChargeRecommended(reason: mapChargeOnSolarNoChargeReason(value.reason))
+        case .chargingOnExcessSolar: return .chargingOnExcessSolar
+        case .chargingOnAnything: return .chargingOnAnything
+        case .userDisabled: return .userDisabled
+        case .waitingForServer: return .waitingForServer
+        case .error: return .error
+        case .userStopped: return .userStopped
+        case nil: return nil
+        }
+    }
+
+    private static func mapChargeOnSolarNoChargeReason(
+        _ pb: ManagedCharging_ChargeOnSolarNoChargeReason
+    ) -> ChargeOnSolarNoChargeReason {
+        switch pb {
+        case .powerwallChargePriority: return .powerwallChargePriority
+        case .insufficientSolar: return .insufficientSolar
+        case .gridExportPriority: return .gridExportPriority
+        case .alternateVehicleChargePriority: return .alternateVehicleChargePriority
+        case .invalid, .UNRECOGNIZED: return .invalid
+        }
     }
 
     private static func mapPowershare(_ pb: CarServer_ChargeState) -> PowershareState? {
@@ -178,6 +252,10 @@ enum VehicleSnapshotMapper {
                 ? Double(pb.minAvailTempCelsius) : nil,
             maxAvailTempCelsius: pb.optionalMaxAvailTempCelsius != nil
                 ? Double(pb.maxAvailTempCelsius) : nil,
+            leftTempDirection: pb.optionalLeftTempDirection != nil
+                ? Int(pb.leftTempDirection) : nil,
+            rightTempDirection: pb.optionalRightTempDirection != nil
+                ? Int(pb.rightTempDirection) : nil,
             fanStatus: pb.optionalFanStatus != nil ? Int(pb.fanStatus) : nil,
             isClimateOn: pb.optionalIsClimateOn != nil ? pb.isClimateOn : nil,
             isAutoConditioningOn: pb.optionalIsAutoConditioningOn != nil
@@ -253,6 +331,7 @@ enum VehicleSnapshotMapper {
     private static func mapDrive(_ pb: CarServer_DriveState) -> DriveState {
         let shiftState = pb.hasShiftState ? mapShift(pb.shiftState) : nil
         let speedMph: Double? = pb.optionalSpeedFloat != nil ? Double(pb.speedFloat) : nil
+        let speedMphInteger: Int? = pb.optionalSpeed != nil ? Int(pb.speed) : nil
         let powerKW: Int? = pb.optionalPower != nil ? Int(pb.power) : nil
         let odometerHundredthsMile: Int? = pb.optionalOdometerInHundredthsOfAMile != nil
             ? Int(pb.odometerInHundredthsOfAMile) : nil
@@ -277,6 +356,7 @@ enum VehicleSnapshotMapper {
         return DriveState(
             shiftState: shiftState,
             speedMph: speedMph,
+            speedMphInteger: speedMphInteger,
             powerKW: powerKW,
             odometerHundredthsMile: odometerHundredthsMile,
             activeRouteDestination: destination,
@@ -382,21 +462,29 @@ enum VehicleSnapshotMapper {
                 pressureBar: pb.optionalTpmsPressureFl != nil ? Double(pb.tpmsPressureFl) : nil,
                 hasWarning: pb.optionalTpmsHardWarningFl != nil || pb.optionalTpmsSoftWarningFl != nil
                     ? (pb.tpmsHardWarningFl || pb.tpmsSoftWarningFl) : nil,
+                lastSeenSecondsSinceEpoch: pb.hasTpmsLastSeenPressureTimeFl
+                    ? pb.tpmsLastSeenPressureTimeFl.seconds : nil,
             ),
             frontRight: TirePressureState.Tire(
                 pressureBar: pb.optionalTpmsPressureFr != nil ? Double(pb.tpmsPressureFr) : nil,
                 hasWarning: pb.optionalTpmsHardWarningFr != nil || pb.optionalTpmsSoftWarningFr != nil
                     ? (pb.tpmsHardWarningFr || pb.tpmsSoftWarningFr) : nil,
+                lastSeenSecondsSinceEpoch: pb.hasTpmsLastSeenPressureTimeFr
+                    ? pb.tpmsLastSeenPressureTimeFr.seconds : nil,
             ),
             rearLeft: TirePressureState.Tire(
                 pressureBar: pb.optionalTpmsPressureRl != nil ? Double(pb.tpmsPressureRl) : nil,
                 hasWarning: pb.optionalTpmsHardWarningRl != nil || pb.optionalTpmsSoftWarningRl != nil
                     ? (pb.tpmsHardWarningRl || pb.tpmsSoftWarningRl) : nil,
+                lastSeenSecondsSinceEpoch: pb.hasTpmsLastSeenPressureTimeRl
+                    ? pb.tpmsLastSeenPressureTimeRl.seconds : nil,
             ),
             rearRight: TirePressureState.Tire(
                 pressureBar: pb.optionalTpmsPressureRr != nil ? Double(pb.tpmsPressureRr) : nil,
                 hasWarning: pb.optionalTpmsHardWarningRr != nil || pb.optionalTpmsSoftWarningRr != nil
                     ? (pb.tpmsHardWarningRr || pb.tpmsSoftWarningRr) : nil,
+                lastSeenSecondsSinceEpoch: pb.hasTpmsLastSeenPressureTimeRr
+                    ? pb.tpmsLastSeenPressureTimeRr.seconds : nil,
             ),
             recommendedColdFrontBar: pb.optionalTpmsRcpFrontValue != nil
                 ? Double(pb.tpmsRcpFrontValue) : nil,

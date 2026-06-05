@@ -19,6 +19,12 @@ public struct ClimateState: Sendable, Equatable {
     public var minAvailTempCelsius: Double?
     /// Maximum settable cabin temperature in degrees Celsius.
     public var maxAvailTempCelsius: Double?
+    /// Left-zone airflow direction setting (raw vehicle scale). Nil if the
+    /// vehicle did not report this field.
+    public var leftTempDirection: Int?
+    /// Right-zone airflow direction setting (raw vehicle scale). Nil if the
+    /// vehicle did not report this field.
+    public var rightTempDirection: Int?
 
     // MARK: HVAC core
 
@@ -172,6 +178,8 @@ public struct ClimateState: Sendable, Equatable {
         passengerTempSettingCelsius: Double? = nil,
         minAvailTempCelsius: Double? = nil,
         maxAvailTempCelsius: Double? = nil,
+        leftTempDirection: Int? = nil,
+        rightTempDirection: Int? = nil,
         fanStatus: Int? = nil,
         isClimateOn: Bool? = nil,
         isAutoConditioningOn: Bool? = nil,
@@ -216,6 +224,8 @@ public struct ClimateState: Sendable, Equatable {
         self.passengerTempSettingCelsius = passengerTempSettingCelsius
         self.minAvailTempCelsius = minAvailTempCelsius
         self.maxAvailTempCelsius = maxAvailTempCelsius
+        self.leftTempDirection = leftTempDirection
+        self.rightTempDirection = rightTempDirection
         self.fanStatus = fanStatus
         self.isClimateOn = isClimateOn
         self.isAutoConditioningOn = isAutoConditioningOn

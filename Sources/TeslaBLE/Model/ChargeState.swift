@@ -162,7 +162,34 @@ public struct ChargeState: Sendable, Equatable {
     /// Coordinates the user has saved as "work".
     public var workLocation: Coordinate?
 
+    // MARK: Departure / day-pattern selection
+
+    /// Counter the BMS increments each time the pack is charged to max range
+    /// (used to schedule cell balancing). Nil if the vehicle did not report it.
+    public var maxRangeChargeCounter: Int?
+    /// Scheduled departure as an absolute instant, seconds since the Unix
+    /// epoch. Distinct from ``scheduledDepartureTimeMinutes``, which is a
+    /// minutes-from-local-midnight wall-clock value.
+    public var scheduledDepartureTimeSecondsSinceEpoch: Int64?
+    /// Day pattern the active preconditioning window applies to.
+    public var preconditioningTimes: ChargingTimesSelection?
+    /// Day pattern the active off-peak charging window applies to.
+    public var offPeakChargingTimes: ChargingTimesSelection?
+
+    // MARK: Managed charging (Charge on Solar / Tesla Electric)
+
+    /// Managed-charging detail: Charge-on-Solar session state, gateway DIN, and
+    /// Tesla Electric asset id. Nil if the vehicle reported no managed-charging
+    /// sub-message.
+    public var managedChargingState: ManagedChargingState?
+
     // MARK: - Nested enums
+
+    /// Day pattern a scheduled charge / precondition window applies to.
+    public enum ChargingTimesSelection: Sendable, Equatable {
+        case allWeek
+        case weekdays
+    }
 
     /// High-level charging session state.
     public enum ChargingStatus: Sendable, Equatable {
@@ -309,6 +336,11 @@ public struct ChargeState: Sendable, Equatable {
         powershare: PowershareState? = nil,
         homeLocation: Coordinate? = nil,
         workLocation: Coordinate? = nil,
+        maxRangeChargeCounter: Int? = nil,
+        scheduledDepartureTimeSecondsSinceEpoch: Int64? = nil,
+        preconditioningTimes: ChargingTimesSelection? = nil,
+        offPeakChargingTimes: ChargingTimesSelection? = nil,
+        managedChargingState: ManagedChargingState? = nil,
     ) {
         self.batteryLevel = batteryLevel
         self.usableBatteryLevel = usableBatteryLevel
@@ -370,7 +402,78 @@ public struct ChargeState: Sendable, Equatable {
         self.powershare = powershare
         self.homeLocation = homeLocation
         self.workLocation = workLocation
+        self.maxRangeChargeCounter = maxRangeChargeCounter
+        self.scheduledDepartureTimeSecondsSinceEpoch = scheduledDepartureTimeSecondsSinceEpoch
+        self.preconditioningTimes = preconditioningTimes
+        self.offPeakChargingTimes = offPeakChargingTimes
+        self.managedChargingState = managedChargingState
     }
+}
+
+/// Managed-charging (Charge on Solar / Tesla Electric) sub-state of
+/// `ChargeState`.
+///
+/// Mirrors `CarServer_ManagedChargingState`. Every field is optional — an
+/// absent value stays `nil` rather than being defaulted.
+public struct ManagedChargingState: Sendable, Equatable {
+    /// Charge-on-Solar session state, if the vehicle reported one.
+    public var chargeOnSolarState: ChargeOnSolarState?
+    /// DIN of the energy gateway steering this Charge-on-Solar session.
+    public var chargeOnSolarGatewayDin: String?
+    /// Tesla Electric asset id associated with managed charging.
+    public var teslaElectricAssetId: String?
+    /// Minutes until the managed-charging service lowers the charge limit.
+    public var minutesToLowerLimit: Int?
+
+    public init(
+        chargeOnSolarState: ChargeOnSolarState? = nil,
+        chargeOnSolarGatewayDin: String? = nil,
+        teslaElectricAssetId: String? = nil,
+        minutesToLowerLimit: Int? = nil,
+    ) {
+        self.chargeOnSolarState = chargeOnSolarState
+        self.chargeOnSolarGatewayDin = chargeOnSolarGatewayDin
+        self.teslaElectricAssetId = teslaElectricAssetId
+        self.minutesToLowerLimit = minutesToLowerLimit
+    }
+}
+
+/// State of the Charge-on-Solar managed-charging feature.
+///
+/// Mirrors the `state` oneof of `CarServer_ChargeOnSolarState`.
+public enum ChargeOnSolarState: Sendable, Equatable {
+    /// Conditions do not support Charge on Solar (e.g. not at a managed site).
+    case notAllowed
+    /// The site controller is recommending no charge, for the given reason.
+    case noChargeRecommended(reason: ChargeOnSolarNoChargeReason)
+    /// The vehicle is actively following the recommended excess-solar power.
+    case chargingOnExcessSolar
+    /// The vehicle is charging at full power on any source.
+    case chargingOnAnything
+    /// The user disabled the Charge-on-Solar feature.
+    case userDisabled
+    /// Waiting for the first response from the site controller.
+    case waitingForServer
+    /// The charging manager stopped following set points after repeated errors.
+    case error
+    /// The user pressed Stop Charging during a Charge-on-Solar session.
+    case userStopped
+}
+
+/// Highest-priority reason the site controller recommends no charge.
+///
+/// Mirrors `ManagedCharging.ChargeOnSolarNoChargeReason`.
+public enum ChargeOnSolarNoChargeReason: Sendable, Equatable {
+    /// Invalid / unspecified reason.
+    case invalid
+    /// The Powerwall is being prioritized over the vehicle.
+    case powerwallChargePriority
+    /// Not enough solar for the vehicle to charge effectively.
+    case insufficientSolar
+    /// The site controller is prioritizing export to the grid.
+    case gridExportPriority
+    /// Another vehicle charging on solar at this location has priority.
+    case alternateVehicleChargePriority
 }
 
 /// Powershare (V2H / V2L) sub-state of `ChargeState`.
