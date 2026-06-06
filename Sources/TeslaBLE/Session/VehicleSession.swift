@@ -46,6 +46,13 @@ actor VehicleSession {
     /// `epochStartTime`). Refreshed on `resync(fromSessionInfo:)`.
     private var sessionStart: Date
 
+    /// Vehicle clock time (`SessionInfo.clockTime`) of the most recent
+    /// session info applied. Mirrors `Signer.setTime` in
+    /// `internal/authentication/signer.go`; used by `resync` to reject
+    /// stale (out-of-order) session-info updates that share the current
+    /// epoch but carry an older clock value.
+    private var setTime: UInt32
+
     init(
         domain: UniversalMessage_Domain,
         verifierName: Data,
@@ -62,6 +69,7 @@ actor VehicleSession {
         self.sessionKey = sessionKey
         self.epoch = epoch
         counter = initialCounter
+        setTime = clockTime
         sessionStart = handshakeDate.addingTimeInterval(-TimeInterval(clockTime))
     }
 
@@ -126,17 +134,30 @@ actor VehicleSession {
     }
 
     /// Resync this session to a freshly-received (and HMAC-verified)
-    /// `SessionInfo`. Updates epoch, counter, and sessionStart atomically
-    /// and resets the inbound replay window. Called from the dispatcher
-    /// inbound loop when the vehicle proactively attaches updated session
-    /// info to a response (see `internal/authentication/signer.go`
-    /// `UpdateSessionInfo`).
+    /// `SessionInfo`. Called from the dispatcher inbound loop when the
+    /// vehicle proactively attaches updated session info to a response (see
+    /// `internal/authentication/signer.go` `UpdateSessionInfo`).
+    ///
+    /// Mirrors Go's `UpdateSessionInfo` semantics exactly:
+    /// - The update is skipped entirely when it is stale — i.e. the epoch is
+    ///   unchanged AND the advertised `clockTime` is older than the last one
+    ///   we applied (`setTime`). This drops out-of-order session-info echoes.
+    /// - The counter is only ever raised, never lowered. A `SessionInfo`
+    ///   carrying a lower counter than we have already used must not be able
+    ///   to roll us back, because reusing a counter would let a previously
+    ///   sent command be replayed.
     ///
     /// The caller is responsible for HMAC-verifying `info` before calling
     /// this method — this function does not re-verify.
     func resync(fromSessionInfo info: Signatures_SessionInfo, handshakeDate: Date = Date()) {
+        guard epoch != info.epoch || setTime <= info.clockTime else {
+            return
+        }
+        if counter < info.counter {
+            counter = info.counter
+        }
         epoch = info.epoch
-        counter = info.counter
+        setTime = info.clockTime
         sessionStart = handshakeDate.addingTimeInterval(-TimeInterval(info.clockTime))
     }
 

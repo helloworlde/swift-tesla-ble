@@ -332,7 +332,10 @@ final class SessionTests: XCTestCase {
         let c = await session.currentCounter
         let e = await session.currentEpoch
         let start = await session.currentSessionStart
-        XCTAssertEqual(c, 0)
+        // Counter must NOT be rolled backwards by a lower SessionInfo counter:
+        // reusing a counter would allow a previously sent command to replay.
+        // Matches Go `UpdateSessionInfo` (`if s.counter < info.Counter`).
+        XCTAssertEqual(c, 50, "resync must never lower the counter")
         XCTAssertEqual(e, newEpoch)
         XCTAssertEqual(
             start.timeIntervalSince1970,
@@ -340,6 +343,47 @@ final class SessionTests: XCTestCase {
             accuracy: 0.001,
             "sessionStart must rewind by the vehicle-advertised clockTime",
         )
+#endif
+    }
+
+    func testVehicleSessionResyncRaisesCounter() async {
+        // A SessionInfo advertising a higher counter than we have locally
+        // must advance us to it (vehicle has seen more traffic than we sent).
+        let session = makeTestSession(initialCounter: 10)
+        var info = Signatures_SessionInfo()
+        info.epoch = Data(repeating: 0xCD, count: 16)
+        info.counter = 99
+        info.clockTime = 5
+        await session.resync(fromSessionInfo: info)
+
+#if DEBUG
+        let c = await session.currentCounter
+        XCTAssertEqual(c, 99, "resync must raise the counter to the vehicle's value")
+#endif
+    }
+
+    func testVehicleSessionResyncIgnoresStaleUpdate() async {
+        // Same epoch + an older clockTime than already applied = stale echo;
+        // the whole update is dropped (mirrors Go `UpdateSessionInfo`).
+        let epoch = Data(repeating: 0xAB, count: 16)
+        let session = VehicleSession(
+            domain: .vehicleSecurity,
+            verifierName: Data("test_verifier".utf8),
+            localPublicKey: Data(repeating: 0x04, count: 65),
+            sessionKey: SessionKey(rawBytes: Data(repeating: 0x42, count: 16)),
+            epoch: epoch,
+            initialCounter: 10,
+            clockTime: 1000,
+        )
+        var stale = Signatures_SessionInfo()
+        stale.epoch = epoch
+        stale.counter = 999
+        stale.clockTime = 5 // older than the 1000 we initialized with
+        await session.resync(fromSessionInfo: stale)
+
+#if DEBUG
+        let c = await session.currentCounter
+        XCTAssertEqual(c, 10, "stale same-epoch update must be ignored entirely")
 #endif
     }
 
