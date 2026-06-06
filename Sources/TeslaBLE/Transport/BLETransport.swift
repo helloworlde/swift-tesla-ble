@@ -270,15 +270,35 @@ final class BLETransport: NSObject, Sendable {
         onStateChange?(newState)
     }
 
+    /// Resume every waiting `receive()` continuation with `error` and clear
+    /// the queue. Called when the link goes away (disconnect, Bluetooth
+    /// powered off) so callers fail fast instead of hanging until their
+    /// request timeout fires.
+    private func failPendingReceives(with error: Error) {
+        guard !receiveContinuations.isEmpty else { return }
+        let pending = receiveContinuations
+        receiveContinuations.removeAll()
+        for cont in pending {
+            cont.resume(throwing: error)
+        }
+    }
+
     private func assertOnTransportQueue() {
         dispatchPrecondition(condition: .onQueue(queue))
     }
 
     private func tryFlush() -> Data? {
-        guard inputBuffer.count >= 2 else { return nil }
-        if let (message, consumed) = try? MessageFramer.decode(inputBuffer), let message {
+        while inputBuffer.count >= 2 {
+            guard let (message, consumed) = try? MessageFramer.decode(inputBuffer),
+                  consumed > 0 else {
+                // Incomplete frame: wait for more bytes.
+                return nil
+            }
             inputBuffer.removeFirst(consumed)
-            return message
+            if let message {
+                return message
+            }
+            // A zero-length frame was drained; keep scanning for a real one.
         }
         return nil
     }
@@ -298,6 +318,15 @@ extension BLETransport: CBCentralManagerDelegate {
         } else {
             connectionContinuation?.resume(throwing: BLEError.bluetoothUnavailable)
             connectionContinuation = nil
+            // Bluetooth went away (powered off / resetting / unauthorized):
+            // any in-flight link is dead. Fail pending receives so callers
+            // don't hang until their request timeout, and reset transport
+            // state. Guarded so routine startup state updates (which arrive
+            // while already disconnected) don't emit redundant events.
+            failPendingReceives(with: BLEError.bluetoothUnavailable)
+            if state != .disconnected {
+                cleanup()
+            }
         }
     }
 
@@ -364,11 +393,7 @@ extension BLETransport: CBCentralManagerDelegate {
             return
         }
         cleanup()
-        // Fail any pending receives
-        for cont in receiveContinuations {
-            cont.resume(throwing: BLEError.disconnected)
-        }
-        receiveContinuations.removeAll()
+        failPendingReceives(with: BLEError.disconnected)
     }
 
     nonisolated func centralManager(

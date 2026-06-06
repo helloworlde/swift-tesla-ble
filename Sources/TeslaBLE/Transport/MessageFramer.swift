@@ -18,13 +18,25 @@ enum MessageFramer {
 
     /// Attempts to decode one message from the buffer.
     ///
-    /// - Returns: `(message, bytesConsumed)` on success, or `(nil, 0)` if the
-    ///   buffer does not yet contain a complete frame.
+    /// Return contract — the second tuple element is always the number of
+    /// bytes the caller should drop from the front of its buffer:
+    /// - `(message, n)` with `n > 0` — a complete frame was decoded; consume
+    ///   `n` bytes and deliver `message`.
+    /// - `(nil, n)` with `n > 0` — a degenerate zero-length frame was found
+    ///   (`n == 2`, just the length prefix). Tesla never emits empty frames,
+    ///   so this only happens on a corrupt or desynced stream. The prefix is
+    ///   reported as consumable so the reader can resynchronize on the next
+    ///   frame instead of stalling until the RX-timeout buffer reset; the
+    ///   empty frame is never surfaced as a message upstream.
+    /// - `(nil, 0)` — the buffer does not yet hold a complete frame; wait for
+    ///   more bytes.
     static func decode(_ buffer: Data) throws -> (Data?, Int) {
         guard buffer.count >= 2 else { return (nil, 0) }
         let length = Int(buffer[buffer.startIndex]) << 8
             | Int(buffer[buffer.startIndex + 1])
-        guard length > 0 else { return (nil, 0) }
+        // Drain a zero-length frame rather than treating it as "incomplete":
+        // returning (nil, 0) here would wedge the reassembly buffer forever.
+        guard length > 0 else { return (nil, 2) }
         let totalNeeded = 2 + length
         guard buffer.count >= totalNeeded else { return (nil, 0) }
         let message = buffer[buffer.startIndex + 2 ..< buffer.startIndex + totalNeeded]

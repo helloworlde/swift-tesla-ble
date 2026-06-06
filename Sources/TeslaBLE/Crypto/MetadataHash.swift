@@ -23,9 +23,13 @@ import Foundation
 ///   response metadata).
 /// - `hmacContext(sessionKey:label:)` — HMAC-SHA-256 keyed with a subkey
 ///   derived as `HMAC-SHA256(sessionKey, label_utf8)`, then the outer HMAC
-///   is keyed with that subkey. Labels used by the protocol are
-///   `"authenticated command"` (HMAC-personalized signing path) and
-///   `"session info"` (handshake verification).
+///   is keyed with that subkey. The only label this BLE port uses is
+///   `"session info"` (handshake / proactive-resync verification, see
+///   `SessionNegotiator`). The Go reference defines a second label,
+///   `"authenticated command"`, for the HMAC-personalized command path
+///   (`AuthorizeHMAC` in `signer.go`); that path exists only for the HTTP
+///   proxy and is intentionally not ported here — BLE commands are always
+///   AES-GCM sealed via `OutboundSigner`, not HMAC-signed.
 ///
 /// Fixtures: `Tests/TeslaBLETests/Fixtures/crypto/metadata_sha256_vectors.json`
 /// and `metadata_hmac_vectors.json`.
